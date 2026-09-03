@@ -22,8 +22,8 @@ let currentVideos = [];
             return await res.text();
         }
 
-        function getSelectedAlbum() {
-            return Array.from(document.getElementById('albumSelect').selectedOptions)
+        function getSelectedTag() {
+            return Array.from(document.getElementById('tagSelect').selectedOptions)
                 .map(opt => opt.value)
                 .filter(val => val && val.trim() !== '');
         }
@@ -63,6 +63,18 @@ let currentVideos = [];
             }
 
             return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+        }
+
+        function renderLevelStars(level) {
+            const normalizedLevel = typeof level === 'number' && level >= 1 && level <= 5 ? level : 1;
+            const filledStars = 6 - normalizedLevel;
+            let html = '';
+
+            for (let index = 1; index <= 5; index++) {
+                html += `<span style="color:${index <= filledStars ? '#facc15' : '#334155'};font-size:15px;">★</span>`;
+            }
+
+            return html;
         }
 
         function getSelectedPageSize() {
@@ -162,7 +174,7 @@ let currentVideos = [];
             <div class="video-title" title="${v.title ?? ''}">${v.title ?? ''}</div>
             <div class="video-meta">
                 ${creators}
-                ${Array.isArray(v.albums) && v.albums.length > 0 ? '• ' + v.albums.join(', ') : ''}
+                ${Array.isArray(v.tags) && v.tags.length > 0 ? '• ' + v.tags.join(', ') : ''}
                 <span class="level-stars">${renderLevelStars(v.sourceIndex)}</span>
             </div>
         </div>
@@ -174,23 +186,56 @@ let currentVideos = [];
 
             renderPagination(allVideos.length, totalPages);
 
-        // Fonction utilitaire pour afficher les étoiles inversées
-        function renderLevelStars(level) {
-            let html = '';
-            const val = (typeof level === 'number' && level >= 1 && level <= 5) ? level : 1;
-            // 1 = 5 étoiles, 2 = 4, ... 5 = 1 étoile
-            const stars = 6 - val;
-            for (let i = 1; i <= 5; i++) {
-                html += `<span style="color:${i <= stars ? '#facc15' : '#334155'};font-size:15px;">★</span>`;
-            }
-            return html;
-        }
         }
 
         function getVideoById(videoId) {
             return playerVideos.find(video => video.id === videoId)
                 || currentVideos.find(video => video.id === videoId)
                 || allVideos.find(video => video.id === videoId);
+        }
+
+        async function createTagForCurrentVideo() {
+            const video = playerVideos[currentIndex];
+            if (!video) {
+                return;
+            }
+
+            const name = prompt('Nom du tag :');
+            if (!name || !name.trim()) {
+                return;
+            }
+
+            const response = await fetch(`/api/videos/tags?name=${encodeURIComponent(name.trim())}`, {
+                method: 'POST'
+            });
+            if (!response.ok) {
+                setStatus(await response.text());
+                return;
+            }
+
+            const tagName = name.trim();
+            video.tags = [...new Set([...(video.tags || []), tagName])];
+            const updateResponse = await fetch(`/api/videos/${video.id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ tags: video.tags })
+            });
+            if (!updateResponse.ok) {
+                setStatus('Le tag a été créé, mais son association à la vidéo a échoué.');
+                return;
+            }
+
+            const updatedVideo = await updateResponse.json();
+            const videoIndex = playerVideos.findIndex(item => item.id === updatedVideo.id);
+            if (videoIndex >= 0) {
+                playerVideos[videoIndex] = updatedVideo;
+            }
+            const allVideoIndex = allVideos.findIndex(item => item.id === updatedVideo.id);
+            if (allVideoIndex >= 0) {
+                allVideos[allVideoIndex] = updatedVideo;
+            }
+            openPlayerInQueue(currentIndex);
+            setStatus('Tag créé et associé à la vidéo.');
         }
 
         async function toggleFavoriteModal(videoId, button) {
@@ -206,18 +251,18 @@ let currentVideos = [];
         async function loadVideos() {
             try {
                 setStatus('Chargement des vidéos...');
-                const album = getSelectedAlbum();
+                const tag = getSelectedTag();
                 const creator = getSelectedCreator();
                 const sourceIndex = getSelectedSourceIndex();
                 const favoriteOnly = document.getElementById('favoriteFilter')?.checked;
 
                 let videos = await fetchJson('/api/videos');
 
-                if (album.length > 0) {
+                if (tag.length > 0) {
                     videos = videos.filter(v => {
-                        const videoAlbums = Array.isArray(v.albums) ? v.albums : [];
-                        // ET logique : la vidéo doit contenir tous les albums sélectionnés (peu importe s'il y en a d'autres)
-                        return album.every(selected => videoAlbums.includes(selected));
+                        const videoTags = Array.isArray(v.tags) ? v.tags : [];
+                        // ET logique : la vidéo doit contenir tous les tags sélectionnés (peu importe s'il y en a d'autres)
+                        return tag.every(selected => videoTags.includes(selected));
                     });
                 }
 
@@ -240,17 +285,17 @@ let currentVideos = [];
             }
         }
 
-        async function loadAlbums() {
+        async function loadTags() {
             try {
-                const albums = await fetchJson('/api/videos/albums');
-                const filterSelect = document.getElementById('albumSelect');
+                const tags = await fetchJson('/api/videos/tags');
+                const filterSelect = document.getElementById('tagSelect');
 
                 filterSelect.innerHTML = '<option value="">Tous</option>';
 
-                albums.forEach(album => {
+                tags.forEach(tag => {
                     const opt1 = document.createElement('option');
-                    opt1.value = album;
-                    opt1.textContent = album;
+                    opt1.value = tag;
+                    opt1.textContent = tag;
                     filterSelect.appendChild(opt1);
                 });
             } catch (e) {}
@@ -312,8 +357,8 @@ let currentVideos = [];
         }
 
         async function resetFilters() {
-            const albumSelect = document.getElementById('albumSelect');
-            Array.from(albumSelect.options).forEach(opt => opt.selected = false);
+            const tagSelect = document.getElementById('tagSelect');
+            Array.from(tagSelect.options).forEach(opt => opt.selected = false);
             document.getElementById('creatorSelect').value = '';
             document.getElementById('sourceIndexSelect').value = '';
             document.getElementById('sortSelect').value = 'recent';
@@ -531,12 +576,12 @@ let currentVideos = [];
                 const creators = Array.isArray(video.creators) && video.creators.length
                     ? video.creators.join(', ')
                     : 'Unknown';
-                const albums = Array.isArray(video.albums) && video.albums.length
-                    ? ` • ${video.albums.join(', ')}`
+                const tags = Array.isArray(video.tags) && video.tags.length
+                    ? ` • ${video.tags.join(', ')}`
                     : '';
                 const meta = document.createElement('div');
                 meta.className = 'up-next-meta';
-                meta.textContent = `${creators}${albums}`;
+                meta.textContent = `${creators}${tags}`;
 
                 const duration = document.createElement('div');
                 duration.className = 'up-next-meta';
@@ -643,7 +688,7 @@ let currentVideos = [];
             await checkAuthentication();
             initPlayerEvents();
             await loadHost();
-            await loadAlbums();
+            await loadTags();
             await loadCreators();
             await loadVideos();
         });
@@ -810,7 +855,7 @@ let currentVideos = [];
             const creators = Array.isArray(video.creators) && video.creators.length
                 ? video.creators.join(', ')
                 : 'Unknown';
-            document.getElementById('playerSubtitle').textContent = `Créateur: ${creators} • Level: ${video.sourceIndex ?? 'N/A'} • Albums: ${Array.isArray(video.albums) && video.albums.length > 0 ? video.albums.join(', ') : 'Aucun'}`;
+            document.getElementById('playerSubtitle').textContent = `Créateur: ${creators} • Level: ${video.sourceIndex ?? 'N/A'} • Tags: ${Array.isArray(video.tags) && video.tags.length > 0 ? video.tags.join(', ') : 'Aucun'}`;
             document.getElementById('playerDuration').textContent = `${formatDuration(video.durationMs)} / ${formatDuration(video.durationMs || 0)}`;
             document.getElementById('playerFavoriteState').textContent = video.favorite ? 'Oui' : 'Non';
 
@@ -821,12 +866,12 @@ let currentVideos = [];
             markVideoAsWatched(video.id);
             renderUpNextVideos();
 
-            // Build album checkboxes
-            const videoAlbums = Array.isArray(video.albums) ? video.albums : [];
-            const container = document.getElementById('albumCheckboxesContainer');
+            // Build tag checkboxes
+            const videoTags = Array.isArray(video.tags) ? video.tags : [];
+            const container = document.getElementById('tagCheckboxesContainer');
             container.innerHTML = '';
-            const albumSelect = document.getElementById('albumSelect');
-            Array.from(albumSelect.options).forEach(opt => {
+            const tagSelect = document.getElementById('tagSelect');
+            Array.from(tagSelect.options).forEach(opt => {
                 if (!opt.value) return; // skip "Tous"
                 const label = document.createElement('label');
                 label.style.display = 'flex';
@@ -844,7 +889,7 @@ let currentVideos = [];
                 const checkbox = document.createElement('input');
                 checkbox.type = 'checkbox';
                 checkbox.value = opt.value;
-                checkbox.checked = videoAlbums.includes(opt.value);
+                checkbox.checked = videoTags.includes(opt.value);
                 checkbox.style.cursor = 'pointer';
                 checkbox.style.width = '14px';
                 checkbox.style.height = '14px';
@@ -898,7 +943,7 @@ let currentVideos = [];
                 addSelect.style.padding = '4px 8px';
                 addSelect.style.fontSize = '12px';
                 addSelect.style.cursor = 'pointer';
-                addSelect.innerHTML = '<option value="">+ Ajouter un creator</option>';
+                addSelect.innerHTML = '<option value="">+ Ajouter un creator</option><option value="__create__">+ Créer un creator</option>';
                 allCreators.forEach(c => {
                     const name = typeof c === 'string' ? c : c.name;
                     if (!selectedCreators.includes(name)) {
@@ -908,7 +953,30 @@ let currentVideos = [];
                         addSelect.appendChild(opt);
                     }
                 });
-                addSelect.onchange = () => {
+                addSelect.onchange = async () => {
+                    if (addSelect.value === '__create__') {
+                        const name = prompt('Nom du créateur :');
+                        if (!name || !name.trim()) {
+                            renderCreatorBadgesAndSelect(allCreators, video, index);
+                            return;
+                        }
+
+                        const response = await fetch(`/api/videos/creators?name=${encodeURIComponent(name.trim())}`, {
+                            method: 'POST'
+                        });
+                        if (!response.ok) {
+                            setStatus(await response.text());
+                            renderCreatorBadgesAndSelect(allCreators, video, index);
+                            return;
+                        }
+
+                        const createdName = await response.text();
+                        selectedCreators.push(createdName);
+                        video._selectedCreators = selectedCreators;
+                        renderCreatorBadgesAndSelect([...allCreators, createdName], video, index);
+                        return;
+                    }
+
                     if (addSelect.value && !selectedCreators.includes(addSelect.value)) {
                         selectedCreators.push(addSelect.value);
                         video._selectedCreators = selectedCreators;
@@ -964,19 +1032,19 @@ let currentVideos = [];
             return allVideos.findIndex(v => v.id === id);
         }
 
-        // Unified save: send albums (array) and sourceIndex together via PUT /api/videos/{id}
+        // Unified save: send tags (array) and sourceIndex together via PUT /api/videos/{id}
         async function saveModalCombined() {
             if (currentIndex < 0 || !playerVideos[currentIndex]) return;
             const video = playerVideos[currentIndex];
-            const container = document.getElementById('albumCheckboxesContainer');
-            const selectedAlbums = Array.from(container.querySelectorAll('input[type="checkbox"]'))
+            const container = document.getElementById('tagCheckboxesContainer');
+            const selectedTags = Array.from(container.querySelectorAll('input[type="checkbox"]'))
                 .filter(cb => cb.checked)
                 .map(cb => cb.value.trim())
                 .filter(Boolean);
             // Correction ici : utilise video.sourceIndex comme fallback si _selectedLevel n'est pas défini
             const newLevel = typeof video._selectedLevel === 'number' ? video._selectedLevel : (video.sourceIndex ?? 1);
             const payload = {};
-            if (selectedAlbums.length) payload.albums = selectedAlbums;
+            if (selectedTags.length) payload.tags = selectedTags;
             if (!Number.isNaN(newLevel)) payload.sourceIndex = Math.max(0, Math.min(5, newLevel));
             // Ajout creators multi
             if (Array.isArray(video._selectedCreators) && video._selectedCreators.length > 0) {

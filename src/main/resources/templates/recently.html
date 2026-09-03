@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Vidéos récemment vues - Ar44</title>
+    <link rel="stylesheet" href="/css/player.css">
+    <link rel="stylesheet" href="/css/secondary-player.css">
     <link rel="icon" href="/2938237.png">
     <style>
         body {
@@ -380,6 +382,7 @@
         <div class="nav-chip-wrap">
             <button class="nav-chip" onclick="location.href='/'">Bibliothèque</button>
             <button class="nav-chip" onclick="location.href='/favorites'">Favoris</button>
+            <button class="nav-chip" onclick="location.href='/tags'">Tags</button>
             <button class="nav-chip active" onclick="location.href='/recently'">Récemment vus</button>
             <button class="nav-chip" onclick="location.href='/stats'">Statistiques</button>
         </div>
@@ -408,62 +411,69 @@
     </div>
 </div>
 
-<div id="playerModal" class="player-modal">
-    <div id="playerShell" class="player-shell" style="width:82%; max-width:1100px; background:linear-gradient(135deg, #0b1225, #0f172a); border-radius:16px; overflow:hidden; border:1px solid rgba(59,130,246,0.3);">
-        <div style="padding:20px 24px; background:linear-gradient(90deg, #0c1429, #132a4a); border-bottom:1px solid rgba(59,130,246,0.2);">
-            <div style="display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap;">
-                <div style="flex:1; min-width:250px;">
-                    <h3 id="playerTitle" style="margin:0 0 8px 0; font-size:22px; font-weight:700; color:#dbeafe;">Lecture vidéo</h3>
-                    <div id="playerSubtitle" style="font-size:13px; color:#94a3b8;">Cliquez sur les contrôles ou utilisez les flèches ↔ et PageUp/PageDown</div>
+<div id="playerModal" class="player-modal secondary-player-modal">
+    <div id="playerShell" class="player-shell">
+        <div class="player-layout">
+            <div class="player-main-column">
+                <div class="player-video-wrap">
+                    <video id="mainPlayer" autoplay></video>
+                    <div id="bufferingIndicator" class="buffering-indicator"></div>
                 </div>
-                <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
-                    <button type="button" onclick="closePlayer()" title="Fermer" style="background:rgba(15,23,42,0.75); color:#e2e8f0; border:1px solid rgba(148,163,184,0.35); border-radius:8px; width:32px; height:32px; display:flex; align-items:center; justify-content:center; cursor:pointer; font-size:16px;">✕</button>
-                    <div style="display:flex; align-items:center; gap:6px; background:rgba(59,130,246,0.15); padding:6px 12px; border-radius:8px; border:1px solid rgba(59,130,246,0.2);">
-                        <span style="font-size:12px; color:#94a3b8;">Favoris:</span>
-                        <strong id="playerFavoriteState" style="color:#60a5fa;">Non</strong>
+                <section class="player-info-panel" aria-label="Informations de la vid?o">
+                    <div class="player-info-header">
+                        <div class="player-info-copy">
+                            <h3 id="playerTitle">Lecture vid?o</h3>
+                            <div id="playerSubtitle">Informations de la vid?o</div>
+                        </div>
+                        <div class="player-stat-list">
+                            <div class="player-stat"><span>Favoris:</span><strong id="playerFavoriteState">Non</strong></div>
+                            <div class="player-stat"><span id="playerDuration">00:00 / 00:00</span></div>
+                        </div>
                     </div>
-                    <div style="display:flex; align-items:center; gap:6px; background:rgba(59,130,246,0.15); padding:6px 12px; border-radius:8px; border:1px solid rgba(59,130,246,0.2);">
-                        <span style="font-size:12px; color:#94a3b8;" id="playerDuration">00:00 / 00:00</span>
+                    <div class="player-edit-panel">
+                        <label>Tags:</label>
+                        <div id="tagCheckboxesContainer" class="player-tag-checkboxes"></div>
+                        <label>Niveau:</label>
+                        <div id="levelStarsContainer" class="player-level-stars"></div>
+                        <span id="levelValue" class="player-level-value">0</span>
+                        <button class="yt-btn" type="button" onclick="saveModalCombined()">Enregistrer</button>
+                    </div>
+                </section>
+                <div class="yt-controls">
+                    <div class="yt-progress-row">
+                        <span id="currentTime" class="yt-time">00:00</span>
+                        <div class="yt-seek-wrap">
+                            <input id="seekBar" class="yt-seek" type="range" min="0" max="100" step="0.1" value="0" oninput="onSeekBarInput(this.value)">
+                            <span id="seekPreview" class="seek-preview">00:00</span>
+                        </div>
+                        <span id="totalTime" class="yt-time">00:00</span>
+                    </div>
+                    <div class="yt-actions">
+                        <div class="yt-actions-left">
+                            <button id="playPauseBtn" class="yt-btn" onclick="playOrPause()">?</button>
+                            <button class="yt-btn" onclick="seekBy(-10)">-10s</button>
+                            <button class="yt-btn" onclick="seekBy(10)">+10s</button>
+                            <button id="prevBtn" class="yt-btn" onclick="playPrevious()">Pr?c</button>
+                            <button id="nextBtn" class="yt-btn" onclick="playNext()">Suiv</button>
+                            <button id="muteBtn" class="yt-btn" onclick="toggleMute()">??</button>
+                            <input id="volumeSlider" class="yt-range" type="range" min="0" max="1" step="0.01" value="1" oninput="setVolume(this.value)">
+                        </div>
+                        <div class="yt-actions-right">
+                            <select id="speedSelect" class="yt-select" onchange="changeSpeed(this.value)">
+                                <option value="0.5">0.5x</option><option value="0.75">0.75x</option><option value="1" selected>1x</option><option value="1.25">1.25x</option><option value="1.5">1.5x</option><option value="2">2x</option>
+                            </select>
+                            <button id="theaterBtn" class="yt-btn" onclick="toggleTheaterMode()">Th??tre</button>
+                            <button id="fullScreenBtn" class="yt-btn" onclick="toggleFullScreen()">Plein ?cran</button>
+                            <button id="favoriteModalBtn" class="yt-btn" onclick="toggleFavoriteModal(currentVideos[currentIndex]?.id, this)">Favori</button>
+                            <button class="yt-btn" onclick="closePlayer()">Fermer</button>
+                        </div>
                     </div>
                 </div>
             </div>
-        </div>
-        <video id="mainPlayer" autoplay style="width:100%; max-height:75vh; background:black; display:block;"></video>
-        <div id="bufferingIndicator" class="buffering-indicator"></div>
-        <div class="yt-controls">
-            <div class="yt-progress-row">
-                <span id="currentTime" class="yt-time">00:00</span>
-                <div class="yt-seek-wrap">
-                    <input id="seekBar" class="yt-seek" type="range" min="0" max="100" step="0.1" value="0" oninput="onSeekBarInput(this.value)">
-                    <span id="seekPreview" class="seek-preview">00:00</span>
-                </div>
-                <span id="totalTime" class="yt-time">00:00</span>
-            </div>
-            <div class="yt-actions">
-                <div class="yt-actions-left">
-                    <button id="playPauseBtn" class="yt-btn" onclick="playOrPause()">▶</button>
-                    <button class="yt-btn" onclick="seekBy(-10)">-10s</button>
-                    <button class="yt-btn" onclick="seekBy(10)">+10s</button>
-                    <button id="prevBtn" class="yt-btn" onclick="playPrevious()">Préc</button>
-                    <button id="nextBtn" class="yt-btn" onclick="playNext()">Suiv</button>
-                    <button id="muteBtn" class="yt-btn" onclick="toggleMute()">🔊</button>
-                    <input id="volumeSlider" class="yt-range" type="range" min="0" max="1" step="0.01" value="1" oninput="setVolume(this.value)">
-                </div>
-                <div class="yt-actions-right">
-                    <select id="speedSelect" class="yt-select" onchange="changeSpeed(this.value)">
-                        <option value="0.5">0.5x</option>
-                        <option value="0.75">0.75x</option>
-                        <option value="1" selected>1x</option>
-                        <option value="1.25">1.25x</option>
-                        <option value="1.5">1.5x</option>
-                        <option value="2">2x</option>
-                    </select>
-                    <button id="theaterBtn" class="yt-btn" onclick="toggleTheaterMode()">Théâtre</button>
-                    <button id="fullScreenBtn" class="yt-btn" onclick="toggleFullScreen()">Plein écran</button>
-                    <button id="favoriteModalBtn" class="yt-btn" onclick="toggleFavoriteModal(currentVideos[currentIndex]?.id, this)">Favori</button>
-                    <button class="yt-btn" onclick="closePlayer()">Fermer</button>
-                </div>
-            </div>
+            <aside class="up-next-panel" aria-label="Vid?os ? suivre">
+                <h3 class="up-next-title">? suivre</h3>
+                <div id="upNextList" class="up-next-list"></div>
+            </aside>
         </div>
     </div>
 </div>
@@ -649,14 +659,14 @@
     async function saveModalCombined() {
         if (currentIndex < 0 || !currentVideos[currentIndex]) return;
         const video = currentVideos[currentIndex];
-        const container = document.getElementById('albumCheckboxesContainer');
-        const selectedAlbums = Array.from(container.querySelectorAll('input[type="checkbox"]'))
+        const container = document.getElementById('tagCheckboxesContainer');
+        const selectedTags = Array.from(container.querySelectorAll('input[type="checkbox"]'))
             .filter(cb => cb.checked)
             .map(cb => cb.value.trim())
             .filter(Boolean);
-        const newLevel = typeof video._selectedLevel === 'number' ? video._selectedLevel : level;
+        const newLevel = typeof video._selectedLevel === 'number' ? video._selectedLevel : video.sourceIndex;
         const payload = {};
-        if (selectedAlbums.length) payload.albums = selectedAlbums;
+        payload.tags = selectedTags;
         if (!Number.isNaN(newLevel)) payload.sourceIndex = Math.max(1, Math.min(5, newLevel));
         if (Object.keys(payload).length === 0) return;
         const res = await fetch('/api/videos/' + encodeURIComponent(video.id), {
@@ -710,7 +720,7 @@
                 <img alt="thumbnail" src="/api/videos/thumbnail?id=${v.id}" class="video-thumb" onclick="openPlayerByIndex(${index})" />
                 <div class="video-overlay">
                     <div class="video-title">${v.title ?? ''}</div>
-                    <div class="video-meta">${creators} ${Array.isArray(v.albums) && v.albums.length > 0 ? '• ' + v.albums.join(', ') : ''} <span class="level-stars">${renderLevelStars(v.sourceIndex)}</span></div>
+                    <div class="video-meta">${creators} ${Array.isArray(v.tags) && v.tags.length > 0 ? '• ' + v.tags.join(', ') : ''} <span class="level-stars">${renderLevelStars(v.sourceIndex)}</span></div>
                 </div>
                 <div class="favorite-icon ${v.favorite ? 'favorite-active' : ''}" onclick="toggleFavorite(event, ${v.id}, this)">♥</div>
                 <div class="video-duration">${formatDuration(v.durationMs)}</div>
@@ -747,6 +757,50 @@
         }
         await loadRecently();
     }
+    function renderUpNext() {
+        const list = document.getElementById('upNextList');
+        if (!list) return;
+
+        list.innerHTML = '';
+        const nextVideos = currentVideos.slice(currentIndex + 1, currentIndex + 51);
+        if (!nextVideos.length) {
+            list.innerHTML = '<p class="up-next-empty">Fin de cette liste.</p>';
+            return;
+        }
+
+        nextVideos.forEach((video, offset) => {
+            const index = currentIndex + offset + 1;
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.className = 'up-next-item';
+            button.onclick = () => openPlayerByIndex(index);
+
+            const thumbnail = document.createElement('img');
+            thumbnail.className = 'up-next-thumbnail';
+            thumbnail.src = `/api/videos/thumbnail?id=${encodeURIComponent(video.id)}`;
+            thumbnail.alt = '';
+            thumbnail.loading = 'lazy';
+
+            const details = document.createElement('div');
+            details.className = 'up-next-details';
+            const title = document.createElement('div');
+            title.className = 'up-next-video-title';
+            title.textContent = video.title || video.fileName || 'Vid?o sans titre';
+            const creators = document.createElement('div');
+            creators.className = 'up-next-meta';
+            creators.textContent = Array.isArray(video.creators) && video.creators.length
+                ? video.creators.join(', ')
+                : 'Unknown';
+            const duration = document.createElement('div');
+            duration.className = 'up-next-meta';
+            duration.textContent = formatDuration(video.durationMs) || 'Dur?e inconnue';
+
+            details.append(title, creators, duration);
+            button.append(thumbnail, details);
+            list.appendChild(button);
+        });
+    }
+
     function openPlayerByIndex(index) {
         if (!currentVideos || index < 0 || index >= currentVideos.length) return;
 
@@ -761,7 +815,7 @@
         const creators = Array.isArray(video.creators) && video.creators.length > 0
             ? video.creators.join(', ')
             : 'Unknown';
-        document.getElementById('playerSubtitle').textContent = `Créateur: ${creators} • Level: ${video.sourceIndex ?? 'N/A'} • Albums: ${Array.isArray(video.albums) && video.albums.length > 0 ? video.albums.join(', ') : 'Aucun'}`;
+        document.getElementById('playerSubtitle').textContent = `Créateur: ${creators} • Level: ${video.sourceIndex ?? 'N/A'} • Tags: ${Array.isArray(video.tags) && video.tags.length > 0 ? video.tags.join(', ') : 'Aucun'}`;
         document.getElementById('playerDuration').textContent = `${formatDuration(video.durationMs)} / ${formatDuration(video.durationMs || 0)}`;
         document.getElementById('playerFavoriteState').textContent = video.favorite ? 'Oui' : 'Non';
         const player = document.getElementById('mainPlayer');
@@ -773,14 +827,17 @@
         } else {
             player.src = '';
         }
+        player.load();
+        player.play().catch(() => {});
         document.getElementById('playerModal').style.display = 'flex';
+        renderUpNext();
         markVideoAsWatched(video.id);
-        const videoAlbums = Array.isArray(video.albums) ? video.albums : [];
-        const container = document.getElementById('albumCheckboxesContainer');
+        const videoTags = Array.isArray(video.tags) ? video.tags : [];
+        const container = document.getElementById('tagCheckboxesContainer');
         container.innerHTML = '';
-        const allAlbums = getAllAlbums();
-        if (allAlbums && allAlbums.length > 0) {
-            allAlbums.forEach(album => {
+        const allTags = getAllTags();
+        if (allTags && allTags.length > 0) {
+            allTags.forEach(tag => {
                 const label = document.createElement('label');
                 label.style.display = 'flex';
                 label.style.alignItems = 'center';
@@ -796,13 +853,13 @@
                 label.style.transition = 'all 0.2s ease';
                 const checkbox = document.createElement('input');
                 checkbox.type = 'checkbox';
-                checkbox.value = album;
-                checkbox.checked = videoAlbums.includes(album);
+                checkbox.value = tag;
+                checkbox.checked = videoTags.includes(tag);
                 checkbox.style.cursor = 'pointer';
                 checkbox.style.width = '14px';
                 checkbox.style.height = '14px';
                 label.appendChild(checkbox);
-                label.appendChild(document.createTextNode(album));
+                label.appendChild(document.createTextNode(tag));
                 label.addEventListener('mouseenter', () => {
                     label.style.background = 'rgba(59,130,246,0.4)';
                     label.style.borderColor = 'rgba(59,130,246,0.6)';
@@ -851,14 +908,14 @@
             }
         }
     }
-    function getAllAlbums() {
-        const albums = new Set();
+    function getAllTags() {
+        const tags = new Set();
         allVideos.forEach(v => {
-            if (Array.isArray(v.albums)) {
-                v.albums.forEach(a => albums.add(a));
+            if (Array.isArray(v.tags)) {
+                v.tags.forEach(a => tags.add(a));
             }
         });
-        return Array.from(albums).sort();
+        return Array.from(tags).sort();
     }
     function seekBy(seconds) {
         const player = document.getElementById('mainPlayer');
@@ -927,15 +984,15 @@
         setBuffering(false);
         currentIndex = -1;
     }
-    function playNext() { 
-        if (!currentVideos || currentVideos.length===0) return; 
-        const next=(currentIndex+1)%currentVideos.length; 
-        openPlayerByIndex(next); 
+    function playNext() {
+        if (currentIndex >= 0 && currentIndex < currentVideos.length - 1) {
+            openPlayerByIndex(currentIndex + 1);
+        }
     }
-    function playPrevious() { 
-        if (!currentVideos || currentVideos.length===0) return; 
-        const prev=(currentIndex-1+currentVideos.length)%currentVideos.length; 
-        openPlayerByIndex(prev); 
+    function playPrevious() {
+        if (currentIndex > 0) {
+            openPlayerByIndex(currentIndex - 1);
+        }
     }
     async function checkAuthentication() {
         try {

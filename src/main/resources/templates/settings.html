@@ -127,13 +127,13 @@
             margin-top: 8px;
         }
 
-        .album-actions {
+        .tag-actions {
             display: flex;
             gap: 6px;
             flex-wrap: wrap;
         }
 
-        .album-input {
+        .tag-input {
             background: rgba(11,17,36,0.85);
             color: #e0f2fe;
             border: 1px solid rgba(59,130,246,0.35);
@@ -198,6 +198,7 @@
         <div class="nav-chip-wrap">
             <button class="nav-chip" onclick="location.href='/'">Bibliothèque</button>
             <button class="nav-chip" onclick="location.href='/favorites'">Favoris</button>
+            <button class="nav-chip" onclick="location.href='/tags'">Tags</button>
             <button class="nav-chip" onclick="location.href='/recently'">Récemment vus</button>
             <button class="nav-chip" onclick="location.href='/stats'">Statistiques</button>
         </div>
@@ -223,27 +224,27 @@
 
         <div class="panel">
             <div style="display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;">
-                <h2 class="panel-title" style="margin:0;">Albums</h2>
-                <button class="btn-secondary" onclick="loadAlbums()">Rafraîchir</button>
+                <h2 class="panel-title" style="margin:0;">Tags</h2>
+                <button class="btn-secondary" onclick="loadTags()">Rafraîchir</button>
             </div>
-            <div class="muted">Liste des albums avec nombre de vidéos.</div>
+            <div class="muted">Liste des tags avec nombre de vidéos.</div>
             <div style="margin-top:10px; display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
-                <input id="newAlbumInput" class="album-input" type="text" placeholder="Nouvel album">
-                <button class="btn" onclick="addAlbum()">Ajouter</button>
+                <input id="newTagInput" class="tag-input" type="text" placeholder="Nouvel tag">
+                <button class="btn" onclick="addTag()">Ajouter</button>
             </div>
             <div style="margin-top:10px; overflow:auto;">
                 <table>
                     <thead>
                         <tr>
-                            <th>Album</th>
+                            <th>Tag</th>
                             <th>Nombre de vidéos</th>
                             <th>Actions</th>
                         </tr>
                     </thead>
-                    <tbody id="albumRows"></tbody>
+                    <tbody id="tagRows"></tbody>
                 </table>
             </div>
-            <div id="albumStatus" class="status"></div>
+            <div id="tagStatus" class="status"></div>
         </div>
     </div>
 </div>
@@ -297,31 +298,31 @@
         }
     }
 
-    async function loadAlbums() {
-        const rows = document.getElementById('albumRows');
-        const status = document.getElementById('albumStatus');
+    async function loadTags() {
+        const rows = document.getElementById('tagRows');
+        const status = document.getElementById('tagStatus');
         rows.innerHTML = '';
         try {
-            const stats = await fetch('/api/videos/albums/stats').then(r => r.json());
+            const stats = await fetch('/api/videos/tags/stats').then(r => r.json());
             if (!stats || stats.length === 0) {
-                rows.innerHTML = '<tr><td colspan="3" class="muted">Aucun album.</td></tr>';
+                rows.innerHTML = '<tr><td colspan="3" class="muted">Aucun tag.</td></tr>';
                 status.textContent = '';
                 return;
             }
 
             stats
-                .sort((a, b) => String(a.album || '').localeCompare(String(b.album || '')))
+                .sort((a, b) => String(a.tag || '').localeCompare(String(b.tag || '')))
                 .forEach(item => {
                     const tr = document.createElement('tr');
-                    const name = item.album || '';
+                    const name = item.tag || '';
                     const count = item.count != null ? item.count : '';
                     tr.innerHTML = `
                         <td>${name}</td>
                         <td>${count}</td>
                         <td>
-                            <div class="album-actions">
-                                <button class="btn-secondary" onclick="renameAlbum('${name.replace(/'/g, "\\'")}')">Modifier</button>
-                                <button class="btn-secondary" onclick="deleteAlbum('${name.replace(/'/g, "\\'")}')">Supprimer</button>
+                            <div class="tag-actions">
+                                <button class="btn-secondary" onclick="renameTag('${name.replace(/'/g, "\\'")}')">Modifier</button>
+                                <button class="btn-secondary" onclick="deleteTag('${name.replace(/'/g, "\\'")}')">Supprimer</button>
                             </div>
                         </td>
                     `;
@@ -329,77 +330,77 @@
                 });
             status.textContent = '';
         } catch (e) {
-            status.textContent = 'Erreur lors du chargement des albums.';
+            status.textContent = 'Erreur lors du chargement des tags.';
         }
     }
 
-    async function addAlbum() {
-        const status = document.getElementById('albumStatus');
-        const input = document.getElementById('newAlbumInput');
+    async function addTag() {
+        const status = document.getElementById('tagStatus');
+        const input = document.getElementById('newTagInput');
         const name = input.value.trim();
         if (!name) {
-            status.textContent = 'Saisissez un nom d\'album.';
+            status.textContent = 'Saisissez un nom d\'tag.';
             return;
         }
 
         try {
-            const res = await fetch(`/api/videos/albums/add?name=${encodeURIComponent(name)}`, { method: 'POST' });
+            const res = await fetch(`/api/videos/tags?name=${encodeURIComponent(name)}`, { method: 'POST' });
             const msg = await res.text();
             if (!res.ok) {
-                status.textContent = msg || 'Erreur ajout album.';
+                status.textContent = msg || 'Erreur ajout tag.';
                 return;
             }
             input.value = '';
-            status.textContent = 'Album ajouté.';
-            await loadAlbums();
+            status.textContent = 'Tag ajouté.';
+            await loadTags();
         } catch (e) {
-            status.textContent = 'Erreur ajout album.';
+            status.textContent = 'Erreur ajout tag.';
         }
     }
 
-    async function renameAlbum(currentName) {
-        const status = document.getElementById('albumStatus');
-        const newName = prompt('Nouveau nom pour l\'album :', currentName);
+    async function renameTag(currentName) {
+        const status = document.getElementById('tagStatus');
+        const newName = prompt('Nouveau nom pour le tag :', currentName);
         if (!newName) return;
         const trimmed = newName.trim();
         if (!trimmed) return;
 
         try {
-            const res = await fetch(`/api/videos/albums/rename?oldName=${encodeURIComponent(currentName)}&newName=${encodeURIComponent(trimmed)}`, { method: 'POST' });
+            const res = await fetch(`/api/videos/tags?oldName=${encodeURIComponent(currentName)}&newName=${encodeURIComponent(trimmed)}`, { method: 'PUT' });
             const msg = await res.text();
             if (!res.ok) {
-                status.textContent = msg || 'Erreur renommage album.';
+                status.textContent = msg || 'Erreur renommage tag.';
                 return;
             }
-            status.textContent = 'Album modifié.';
-            await loadAlbums();
+            status.textContent = 'Tag modifié.';
+            await loadTags();
         } catch (e) {
-            status.textContent = 'Erreur renommage album.';
+            status.textContent = 'Erreur renommage tag.';
         }
     }
 
-    async function deleteAlbum(name) {
-        const status = document.getElementById('albumStatus');
-        if (!confirm(`Supprimer l\'album "${name}" ? Les vidéos seront conservées.`)) return;
+    async function deleteTag(name) {
+        const status = document.getElementById('tagStatus');
+        if (!confirm(`Supprimer le tag "${name}" ? Les vidéos seront conservées.`)) return;
 
         try {
-            const res = await fetch(`/api/videos/albums?name=${encodeURIComponent(name)}`, { method: 'DELETE' });
+            const res = await fetch(`/api/videos/tags?name=${encodeURIComponent(name)}`, { method: 'DELETE' });
             const msg = await res.text();
             if (!res.ok) {
-                status.textContent = msg || 'Erreur suppression album.';
+                status.textContent = msg || 'Erreur suppression tag.';
                 return;
             }
-            status.textContent = 'Album supprimé.';
-            await loadAlbums();
+            status.textContent = 'Tag supprimé.';
+            await loadTags();
         } catch (e) {
-            status.textContent = 'Erreur suppression album.';
+            status.textContent = 'Erreur suppression tag.';
         }
     }
 
     window.addEventListener('load', async () => {
         await checkAuthentication();
         await loadHost();
-        await loadAlbums();
+        await loadTags();
     });
 </script>
 </body>

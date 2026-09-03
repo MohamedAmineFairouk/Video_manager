@@ -38,6 +38,6 @@ public class CreatorService {
     }
 
     public Optional<Creator> findByName(String name) {
-        return creatorRepository.findAll().stream().filter(c -> c.getName().equals(name)).findFirst();
+        return creatorRepository.findByNameIgnoreCase(name);
     }
 }

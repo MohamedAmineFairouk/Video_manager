@@ -11,7 +11,7 @@ public class VideoResponse {
     private String url;
     private Long durationMs;
     private List<String> creators;
-    private List<String> albums;
+    private List<String> tags;
     private Integer sourceIndex;
     private Boolean favorite;
     private Integer favoriteOrder; // nouvellement exposé au front-end

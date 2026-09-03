@@ -23,6 +23,7 @@
         <div class="nav-chip-wrap">
             <button class="nav-chip active" onclick="location.href='/'">Bibliothèque</button>
             <button class="nav-chip" onclick="location.href='/favorites'">Favoris</button>
+            <button class="nav-chip" onclick="location.href='/tags'">Tags</button>
             <button class="nav-chip" onclick="location.href='/recently'">Récemment vus</button>
             <button class="nav-chip" onclick="location.href='/stats'">Statistiques</button>
             <button class="nav-chip" style="background:linear-gradient(90deg,#38bdf8,#6366f1);color:#fff;font-weight:700;gap:6px;" onclick="openAddVideoModal()">
@@ -56,8 +57,8 @@
         </div>
 
         <div class="filter-box">
-            <p class="section-title">Album</p>
-            <select id="albumSelect" class="selector" onchange="onFilterChange()" multiple size="4">
+            <p class="section-title">Tag</p>
+            <select id="tagSelect" class="selector" onchange="onFilterChange()" multiple size="4">
                 <option value="">Tous</option>
             </select>
             <div class="muted-note">(Ctrl/Cmd + clic pour plusieurs)</div>
@@ -120,7 +121,7 @@
         <input name="title" class="host-input" type="text" placeholder="Titre de la vidéo" required style="background:rgba(255,255,255,0.08); color:#fff;" />
         <input name="fileName" class="host-input" type="text" placeholder="Nom du fichier (ex: A69_001_DDDD.mp4)" required style="background:rgba(255,255,255,0.08); color:#fff;" />
         <input name="creators" class="host-input" type="text" placeholder="Créateurs (séparés par virgule)" style="background:rgba(255,255,255,0.08); color:#fff;" />
-        <input name="albums" class="host-input" type="text" placeholder="Albums (séparés par virgule)" style="background:rgba(255,255,255,0.08); color:#fff;" />
+        <input name="tags" class="host-input" type="text" placeholder="Tags (séparés par virgule)" style="background:rgba(255,255,255,0.08); color:#fff;" />
         <input name="sourceIndex" class="host-input" type="number" min="1" max="5" placeholder="Niveau (1-5)" style="background:rgba(255,255,255,0.08); color:#fff;" />
         <input name="createdAt" id="createdAtInput" class="host-input" type="text" placeholder="Date de création" readonly style="background:rgba(255,255,255,0.08); color:#fff;" />
         <label style="font-size:13px; color:#e0e7ef;">Thumbnail <span style="color:#f87171;">*</span> <input name="thumbnail" type="file" accept="image/*" required style="margin-left:8px;" /></label>
@@ -195,8 +196,9 @@
                         </div>
                     </div>
                     <div style="margin-top:12px; display:flex; gap:8px; align-items:center; flex-wrap:wrap; padding:10px 12px; background:rgba(15,23,42,0.8); border:1px solid rgba(148,163,184,0.2); border-radius:10px;">
-                        <label style="font-size:11px; font-weight:600; color:#94a3b8; text-transform:uppercase; letter-spacing:0.05em; margin:0;">Albums:</label>
-                        <div id="albumCheckboxesContainer" style="display:flex; flex-direction:row; flex-wrap:wrap; gap:6px; align-items:center;"></div>
+                        <label style="font-size:11px; font-weight:600; color:#94a3b8; text-transform:uppercase; letter-spacing:0.05em; margin:0;">Tags:</label>
+                        <div id="tagCheckboxesContainer" style="display:flex; flex-direction:row; flex-wrap:wrap; gap:6px; align-items:center;"></div>
+                        <button class="yt-btn" type="button" onclick="createTagForCurrentVideo()">+ Tag</button>
                         <label style="font-size:11px; font-weight:600; color:#94a3b8; text-transform:uppercase; letter-spacing:0.05em; margin:0 0 0 8px;">Creators:</label>
                         <div id="creatorBadgesContainer" style="display:flex; flex-direction:row; flex-wrap:wrap; gap:6px; align-items:center;"></div>
                         <label style="font-size:11px; font-weight:600; color:#94a3b8; text-transform:uppercase; letter-spacing:0.05em; margin:0 0 0 8px;">Niveau:</label>

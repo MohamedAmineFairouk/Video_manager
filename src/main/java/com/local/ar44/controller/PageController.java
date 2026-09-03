@@ -46,6 +46,15 @@ public class PageController {
         return "recently";
     }
 
+    @GetMapping("/tags")
+    public Object tags(HttpSession session) {
+        if (session.getAttribute("authenticated") == null || !(boolean) session.getAttribute("authenticated")) {
+            return new RedirectView("/login", true);
+        }
+        statsService.logAccess("tags", (String) session.getAttribute("username"));
+        return "tags";
+    }
+
     @GetMapping("/settings")
     public Object settings(HttpSession session) {
         if (session.getAttribute("authenticated") == null || !(boolean) session.getAttribute("authenticated")) {

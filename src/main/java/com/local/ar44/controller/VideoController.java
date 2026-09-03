@@ -1,26 +1,23 @@
 package com.local.ar44.controller;
 
-import com.local.ar44.dto.Album;
-import com.local.ar44.dto.AlbumStats;
 import com.local.ar44.dto.AppConfig;
 import com.local.ar44.dto.UpdateVideoRequest;
 import com.local.ar44.dto.Creator;
+import com.local.ar44.dto.Tag;
+import com.local.ar44.dto.TagStats;
 import com.local.ar44.dto.Video;
 import com.local.ar44.dto.VideoResponse;
-import com.local.ar44.repo.AlbumRepository;
 import com.local.ar44.repo.AppConfigRepository;
+import com.local.ar44.repo.TagRepository;
 import com.local.ar44.repo.VideoRepository;
 import com.local.ar44.service.StatsService;
 import com.local.ar44.service.ThumbnailStorageService;
-import jakarta.persistence.EntityManager;
-import jakarta.persistence.PersistenceContext;
 import jakarta.servlet.http.HttpSession;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.UrlResource;
-import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -43,23 +40,20 @@ public class VideoController {
 
     private final VideoRepository videoRepository;
     private final AppConfigRepository appConfigRepository;
-    private final AlbumRepository albumRepository;
+    private final TagRepository tagRepository;
         private final com.local.ar44.service.CreatorService creatorService;
     private final StatsService statsService;
     private final ThumbnailStorageService thumbnailStorageService;
 
-    @PersistenceContext
-    private EntityManager entityManager;
-
     public VideoController(VideoRepository videoRepository,
                            AppConfigRepository appConfigRepository,
-                           AlbumRepository albumRepository,
+                           TagRepository tagRepository,
                            StatsService statsService,
                            ThumbnailStorageService thumbnailStorageService,
                            com.local.ar44.service.CreatorService creatorService) {
         this.videoRepository = videoRepository;
         this.appConfigRepository = appConfigRepository;
-        this.albumRepository = albumRepository;
+        this.tagRepository = tagRepository;
         this.statsService = statsService;
         this.thumbnailStorageService = thumbnailStorageService;
         this.creatorService = creatorService;
@@ -105,8 +99,8 @@ public class VideoController {
                 .sorted()
                 .toList()
         );
-        response.setAlbums(video.getAlbums().stream()
-                .map(Album::getName)
+        response.setTags(video.getTags().stream()
+                .map(Tag::getName)
                 .sorted()
                 .toList());
         response.setFavorite(video.getFavorite());
@@ -144,61 +138,35 @@ public class VideoController {
             return ResponseEntity.internalServerError().build();
         }
     }
-    private void assignAlbumsToVideo(Video video, String albumString) {
-        video.getAlbums().clear();
-        if (albumString != null && !albumString.isEmpty()) {
-            String[] albumNames = albumString.split(",");
-            for (String albumName : albumNames) {
-                String trimmed = albumName.trim();
+    private void assignTagsToVideo(Video video, String tagString) {
+        video.getTags().clear();
+        if (tagString != null && !tagString.isEmpty()) {
+            String[] tagNames = tagString.split(",");
+            for (String tagName : tagNames) {
+                String trimmed = tagName.trim();
                 if (!trimmed.isEmpty()) {
-                    Album a = findOrCreateAlbumSafe(trimmed);
-                    video.getAlbums().add(a);
+                    video.getTags().add(findOrCreateTag(trimmed));
                 }
             }
         }
     }
 
-    // new overload to accept a list of album names
-    private void assignAlbumsToVideo(Video video, List<String> albums) {
-        video.getAlbums().clear();
-        if (albums == null) return;
-        for (String name : albums) {
+    private void assignTagsToVideo(Video video, List<String> tags) {
+        video.getTags().clear();
+        if (tags == null) {
+            return;
+        }
+        for (String name : tags) {
             if (name == null) continue;
             String trimmed = name.trim();
             if (trimmed.isEmpty()) continue;
-            Album a = findOrCreateAlbumSafe(trimmed);
-            video.getAlbums().add(a);
+            video.getTags().add(findOrCreateTag(trimmed));
         }
     }
 
-    private Album findOrCreateAlbumSafe(String albumName) {
-        return albumRepository.findByName(albumName)
-                .orElseGet(() -> saveAlbumWithSequenceRetry(albumName));
-    }
-
-    private Album saveAlbumWithSequenceRetry(String albumName) {
-        try {
-            return albumRepository.save(new Album(albumName));
-        } catch (DataIntegrityViolationException ex) {
-            if (!isAlbumIdSequenceCollision(ex)) {
-                throw ex;
-            }
-            log.warn("Album sequence out of sync detected. Realigning and retrying insert for album '{}'", albumName);
-            realignAlbumIdSequence();
-            return albumRepository.save(new Album(albumName));
-        }
-    }
-
-    private boolean isAlbumIdSequenceCollision(DataIntegrityViolationException ex) {
-        Throwable root = ex.getMostSpecificCause();
-        String message = root != null ? root.getMessage() : ex.getMessage();
-        return message != null && message.contains("album_pkey");
-    }
-
-    private void realignAlbumIdSequence() {
-        entityManager.createNativeQuery(
-                "SELECT setval(pg_get_serial_sequence('album','id'), GREATEST(COALESCE((SELECT MAX(id) FROM album), 0) + 1, 1), false)"
-        ).getSingleResult();
+    private Tag findOrCreateTag(String tagName) {
+        return tagRepository.findByNameIgnoreCase(tagName)
+                .orElseGet(() -> tagRepository.save(new Tag(tagName)));
     }
 
     // ========================
@@ -238,10 +206,10 @@ public class VideoController {
         return List.of();
     }
 
-    @GetMapping("/by-album")
-    public List<VideoResponse> getByAlbum(@RequestParam String album, HttpSession session) {
+    @GetMapping("/by-tag")
+    public List<VideoResponse> getByTag(@RequestParam String tag, HttpSession session) {
         String host = resolveHost(session);
-        return albumRepository.findVideosByAlbumName(album)
+        return tagRepository.findVideosByTagName(tag)
                 .stream()
                 .map(v -> toResponse(v, host))
                 .toList();
@@ -270,50 +238,54 @@ public class VideoController {
                 .toList();
     }
 
-    @GetMapping("/albums")
-    public List<String> getAlbums() {
-        return albumRepository.findDistinctAlbumNames();
+    @PostMapping("/creators")
+    public ResponseEntity<String> addCreator(@RequestParam String name) {
+        String cleaned = name == null ? "" : name.trim();
+        if (cleaned.isEmpty()) {
+            return ResponseEntity.badRequest().body("Nom du créateur requis");
+        }
+        if (creatorService.findByName(cleaned).isPresent()) {
+            return ResponseEntity.badRequest().body("Ce créateur existe déjà");
+        }
+
+        creatorService.save(new Creator(cleaned));
+        return ResponseEntity.ok(cleaned);
     }
 
-    // 🔥 NOUVEAU : albums + count
-    @GetMapping("/albums/stats")
-    public List<AlbumStats> getAlbumsStats() {
+    @GetMapping("/tags")
+    public List<String> getTags() {
+        return tagRepository.findDistinctTagNames();
+    }
+
+    @GetMapping("/tags/stats")
+    public List<TagStats> getTagsStats() {
         return videoRepository.findAll().stream()
-                .flatMap(v -> v.getAlbums().stream())
-                .collect(Collectors.groupingBy(Album::getName, Collectors.counting()))
+                .flatMap(v -> v.getTags().stream())
+                .collect(Collectors.groupingBy(Tag::getName, Collectors.counting()))
                 .entrySet()
                 .stream()
-                .map(e -> new AlbumStats(e.getKey(), e.getValue()))
+                .map(e -> new TagStats(e.getKey(), e.getValue()))
                 .toList();
     }
 
-    @PostMapping("/albums/add")
-    public ResponseEntity<String> addAlbum(@RequestParam String name) {
+    @PostMapping("/tags")
+    public ResponseEntity<String> addTag(@RequestParam String name) {
         String cleaned = name == null ? "" : name.trim();
         if (cleaned.isEmpty()) {
-            return ResponseEntity.badRequest().body("Nom album requis");
+            return ResponseEntity.badRequest().body("Nom du tag requis");
         }
 
-        Optional<Album> existing = albumRepository.findByName(cleaned);
+        Optional<Tag> existing = tagRepository.findByNameIgnoreCase(cleaned);
         if (existing.isPresent()) {
-            return ResponseEntity.badRequest().body("Album existe déjà");
+            return ResponseEntity.badRequest().body("Ce tag existe déjà");
         }
 
-        try {
-            saveAlbumWithSequenceRetry(cleaned);
-            return ResponseEntity.ok("Album ajouté");
-        } catch (DataIntegrityViolationException ex) {
-            // If another request inserted same name concurrently, report cleanly.
-            if (albumRepository.findByName(cleaned).isPresent()) {
-                return ResponseEntity.badRequest().body("Album existe déjà");
-            }
-            log.error("Erreur ajout album", ex);
-            return ResponseEntity.internalServerError().body("Erreur ajout album");
-        }
+        tagRepository.save(new Tag(cleaned));
+        return ResponseEntity.ok("Tag ajouté");
     }
 
-    @PostMapping("/albums/rename")
-    public ResponseEntity<String> renameAlbum(@RequestParam String oldName, @RequestParam String newName) {
+    @PutMapping("/tags")
+    public ResponseEntity<String> renameTag(@RequestParam String oldName, @RequestParam String newName) {
         String oldCleaned = oldName == null ? "" : oldName.trim();
         String newCleaned = newName == null ? "" : newName.trim();
 
@@ -325,49 +297,49 @@ public class VideoController {
             return ResponseEntity.ok("Aucun changement");
         }
 
-        Album source = albumRepository.findByName(oldCleaned)
-                .orElseThrow(() -> new RuntimeException("Album introuvable"));
+        Tag source = tagRepository.findByNameIgnoreCase(oldCleaned)
+                .orElseThrow(() -> new RuntimeException("Tag introuvable"));
 
-        Optional<Album> targetOpt = albumRepository.findByName(newCleaned);
+        Optional<Tag> targetOpt = tagRepository.findByNameIgnoreCase(newCleaned);
         if (targetOpt.isPresent()) {
-            Album target = targetOpt.get();
+            Tag target = targetOpt.get();
             List<Video> touched = new ArrayList<>();
             for (Video video : new ArrayList<>(source.getVideos())) {
-                video.getAlbums().remove(source);
-                video.getAlbums().add(target);
+                video.getTags().remove(source);
+                video.getTags().add(target);
                 touched.add(video);
             }
             videoRepository.saveAll(touched);
-            albumRepository.delete(source);
-            return ResponseEntity.ok("Album fusionné");
+            tagRepository.delete(source);
+            return ResponseEntity.ok("Tags fusionnés");
         }
 
         source.setName(newCleaned);
-        albumRepository.save(source);
-        return ResponseEntity.ok("Album renommé");
+        tagRepository.save(source);
+        return ResponseEntity.ok("Tag renommé");
     }
 
-    @DeleteMapping("/albums")
-    public ResponseEntity<String> deleteAlbum(@RequestParam String name) {
+    @DeleteMapping("/tags")
+    public ResponseEntity<String> deleteTag(@RequestParam String name) {
         String cleaned = name == null ? "" : name.trim();
         if (cleaned.isEmpty()) {
-            return ResponseEntity.badRequest().body("Nom album requis");
+            return ResponseEntity.badRequest().body("Nom du tag requis");
         }
 
-        Album album = albumRepository.findByName(cleaned)
-                .orElseThrow(() -> new RuntimeException("Album introuvable"));
+        Tag tag = tagRepository.findByNameIgnoreCase(cleaned)
+                .orElseThrow(() -> new RuntimeException("Tag introuvable"));
 
         List<Video> touched = new ArrayList<>();
-        for (Video video : new ArrayList<>(album.getVideos())) {
-            video.getAlbums().remove(album);
+        for (Video video : new ArrayList<>(tag.getVideos())) {
+            video.getTags().remove(tag);
             touched.add(video);
         }
         if (!touched.isEmpty()) {
             videoRepository.saveAll(touched);
         }
 
-        albumRepository.delete(album);
-        return ResponseEntity.ok("Album supprimé");
+        tagRepository.delete(tag);
+        return ResponseEntity.ok("Tag supprimé");
     }
 
     // ========================
@@ -378,7 +350,7 @@ public class VideoController {
             @RequestParam String fileName,
             @RequestParam(required = false) String title,
             @RequestParam(required = false) String creator,
-            @RequestParam(required = false) String album,
+            @RequestParam(required = false) String tag,
             @RequestParam(required = false) Long duration
     ) {
 
@@ -386,7 +358,7 @@ public class VideoController {
         v.setFileName(fileName);
         v.setTitle(title != null ? title : fileName);
         // Suppression de setCreator obsolète
-        assignAlbumsToVideo(v, album);
+        assignTagsToVideo(v, tag);
         v.setDurationMs(duration);
 
         return videoRepository.save(v);
@@ -400,7 +372,7 @@ public class VideoController {
             @RequestParam Long id,
             @RequestParam(required = false) String title,
             @RequestParam(required = false) String creator,
-            @RequestParam(required = false) String album,
+            @RequestParam(required = false) String tag,
             @RequestParam(required = false) Integer sourceIndex,
             HttpSession session
     ) {
@@ -408,7 +380,7 @@ public class VideoController {
 
         if (title != null) v.setTitle(title);
         // Suppression de setCreator obsolète
-        if (album != null) assignAlbumsToVideo(v, album);
+        if (tag != null) assignTagsToVideo(v, tag);
         if (sourceIndex != null) {
             int requested = Math.max(0, Math.min(5, sourceIndex));
             v.setSourceIndex(requested);
@@ -440,7 +412,7 @@ public class VideoController {
             }
             v.setCreators(creators);
         }
-        if (req.getAlbums() != null) assignAlbumsToVideo(v, req.getAlbums());
+        if (req.getTags() != null) assignTagsToVideo(v, req.getTags());
         if (req.getSourceIndex() != null) {
             int requested = Math.max(0, Math.min(5, req.getSourceIndex()));
             v.setSourceIndex(requested);
@@ -501,12 +473,12 @@ public class VideoController {
         return "Vidéo supprimée : " + id;
     }
 
-    @GetMapping("/album/set")
-    public String setAlbum(@RequestParam Long id, @RequestParam String album) {
+    @GetMapping("/tag/set")
+    public String setTag(@RequestParam Long id, @RequestParam String tag) {
         Video v = videoRepository.findById(id).orElseThrow();
-        assignAlbumsToVideo(v, album);
+        assignTagsToVideo(v, tag);
         videoRepository.save(v);
-        return "Album(s) mis à jour";
+        return "Tags mis à jour";
     }
     @GetMapping("/source-index/increase")
     public String increaseSourceIndex(@RequestParam Long id) {
@@ -663,7 +635,7 @@ public class VideoController {
             @RequestParam String title,
             @RequestParam String fileName,
             @RequestParam String creators,
-            @RequestParam(required = false) String albums,
+            @RequestParam(required = false) String tags,
             @RequestParam(required = false) Integer sourceIndex,
             @RequestParam("thumbnail") MultipartFile thumbnailFile,
             @RequestParam(value = "videoFile", required = false) MultipartFile videoFile
@@ -687,16 +659,16 @@ public class VideoController {
                     video.setCreators(creatorSet);
                 }
             }
-            // Albums (optionnel)
-            if (albums != null && !albums.isBlank()) {
-                List<String> albumNames = Arrays.stream(albums.split(","))
+            // Tags (optionnel)
+            if (tags != null && !tags.isBlank()) {
+                List<String> tagNames = Arrays.stream(tags.split(","))
                         .map(String::trim).filter(s -> !s.isEmpty()).toList();
-                if (!albumNames.isEmpty()) {
-                    Set<com.local.ar44.dto.Album> albumSet = new HashSet<>();
-                    for (String name : albumNames) {
-                        albumSet.add(findOrCreateAlbumSafe(name));
+                if (!tagNames.isEmpty()) {
+                    Set<Tag> tagSet = new HashSet<>();
+                    for (String name : tagNames) {
+                        tagSet.add(findOrCreateTag(name));
                     }
-                    video.setAlbums(albumSet);
+                    video.setTags(tagSet);
                 }
             }
             // Sauvegarde de la vidéo en base (pour avoir l'ID)
