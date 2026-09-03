@@ -10,10 +10,13 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 @Service
 public class ThumbnailStorageService {
     private static final Logger log = LoggerFactory.getLogger(ThumbnailStorageService.class);
+    private static final Pattern NUMBERED_VIDEO_NAME = Pattern.compile("^vid_(\\d+)$", Pattern.CASE_INSENSITIVE);
 
     private final Path thumbsDir;
 
@@ -54,7 +57,10 @@ public class ThumbnailStorageService {
                 ? cleanName.substring(0, dotIndex)
                 : cleanName;
         
-        String result = baseName + ".jpg";
+        Matcher numberedVideoName = NUMBERED_VIDEO_NAME.matcher(baseName);
+        String result = numberedVideoName.matches()
+                ? "thumb_" + numberedVideoName.group(1) + ".jpg"
+                : baseName + ".jpg";
         log.debug("[THUMBNAILS] toThumbnailName: {} -> cleanName={} -> baseName={} -> result={}",
                 videoFileName, cleanName, baseName, result);
         
