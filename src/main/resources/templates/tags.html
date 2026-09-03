@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tags - Arcad</title>
+    <link rel="icon" href="/2938237.png">
+    <link rel="stylesheet" href="/css/base.css">
+    <link rel="stylesheet" href="/css/player.css">
+    <link rel="stylesheet" href="/css/secondary-player.css">
+    <link rel="stylesheet" href="/css/tags.css">
+    <script src="/js/tags.js" defer></script>
+</head>
+<body>
+<div class="app">
+    <aside class="sidebar">
+        <div style="display:flex; align-items:center; gap:12px; margin-bottom:18px;">
+            <img src="/2938237.png" alt="" style="width:38px; height:38px; border-radius:10px;">
+            <span style="font-size:1.7rem; font-weight:800; color:#dbeafe;">Ar44</span>
+        </div>
+        <nav class="nav-chip-wrap" aria-label="Navigation principale">
+            <button class="nav-chip" onclick="location.href='/'">Bibliothèque</button>
+            <button class="nav-chip" onclick="location.href='/favorites'">Favoris</button>
+            <button class="nav-chip active" onclick="location.href='/tags'">Tags</button>
+            <button class="nav-chip" onclick="location.href='/recently'">Récemment vus</button>
+            <button class="nav-chip" onclick="location.href='/stats'">Statistiques</button>
+        </nav>
+        <p class="tag-list-title">Tous les tags</p>
+        <div id="tagList" class="tag-list" aria-label="Liste des tags"></div>
+    </aside>
+
+    <main class="content">
+        <div class="playlist-header">
+            <div>
+                <h1 id="tagTitle" class="page-title">Tags</h1>
+                <p id="tagDescription" class="page-subtitle">Choisissez un tag pour afficher sa playlist.</p>
+            </div>
+            <div class="tag-toolbar">
+                <input id="newTagName" class="host-input" type="text" placeholder="Nouveau tag">
+                <button class="btn" type="button" onclick="addTag()">Ajouter</button>
+                <button class="btn-secondary" style="width:auto; margin-top:0;" onclick="loadTagsPage()">Rafraîchir</button>
+            </div>
+        </div>
+        <div id="tagManagement" class="tag-management" hidden>
+            <button class="btn-secondary" type="button" onclick="renameActiveTag()">Renommer</button>
+            <button class="btn-secondary danger-button" type="button" onclick="deleteActiveTag()">Supprimer</button>
+        </div>
+        <section id="playlistGrid" class="playlist-grid" aria-live="polite"></section>
+    </main>
+</div>
+
+<div id="playerModal" class="player-modal secondary-player-modal">
+    <div id="playerShell" class="player-shell">
+        <div class="player-layout">
+            <div class="player-main-column">
+                <div class="player-video-wrap">
+                    <video id="mainPlayer" controls autoplay></video>
+                    <div id="centerPlayButton" class="center-play-button" aria-hidden="true">▶</div>
+                </div>
+                <section class="player-info-panel">
+                    <div class="player-info-header">
+                        <div class="player-info-copy">
+                            <h2 id="playerTitle">Lecture vidéo</h2>
+                            <p id="playerSubtitle"></p>
+                        </div>
+                        <button class="yt-btn" type="button" onclick="closePlayer()">Fermer</button>
+                    </div>
+                </section>
+            </div>
+            <aside class="up-next-panel" aria-label="Vidéos à suivre">
+                <h2 class="up-next-title">À suivre</h2>
+                <div id="upNextList" class="up-next-list"></div>
+            </aside>
+        </div>
+    </div>
+</div>
+</body>
+</html>

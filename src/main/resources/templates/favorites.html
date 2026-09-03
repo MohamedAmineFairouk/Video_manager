@@ -726,13 +726,14 @@
             <div class="player-main-column">
                 <div class="player-video-wrap">
                     <video id="mainPlayer" autoplay></video>
+                    <div id="centerPlayButton" class="center-play-button" aria-hidden="true">▶</div>
                     <div id="bufferingIndicator" class="buffering-indicator"></div>
                 </div>
-                <section class="player-info-panel" aria-label="Informations de la vid?o">
+                <section class="player-info-panel" aria-label="Informations de la vidéo">
                     <div class="player-info-header">
                         <div class="player-info-copy">
-                            <h3 id="playerTitle">Lecture vid?o</h3>
-                            <div id="playerSubtitle">Informations de la vid?o</div>
+                            <h3 id="playerTitle">Lecture vidéo</h3>
+                            <div id="playerSubtitle">Informations de la vidéo</div>
                         </div>
                         <div class="player-stat-list">
                             <div class="player-stat"><span>Favoris:</span><strong id="playerFavoriteState">Non</strong></div>
@@ -759,28 +760,28 @@
                     </div>
                     <div class="yt-actions">
                         <div class="yt-actions-left">
-                            <button id="playPauseBtn" class="yt-btn" onclick="playOrPause()">?</button>
+                            <button id="playPauseBtn" class="yt-btn" onclick="playOrPause()">▶</button>
                             <button class="yt-btn" onclick="seekBy(-10)">-10s</button>
                             <button class="yt-btn" onclick="seekBy(10)">+10s</button>
-                            <button id="prevBtn" class="yt-btn" onclick="playPrevious()">Pr?c</button>
+                            <button id="prevBtn" class="yt-btn" onclick="playPrevious()">Préc</button>
                             <button id="nextBtn" class="yt-btn" onclick="playNext()">Suiv</button>
-                            <button id="muteBtn" class="yt-btn" onclick="toggleMute()">??</button>
+                            <button id="muteBtn" class="yt-btn" onclick="toggleMute()">🔊</button>
                             <input id="volumeSlider" class="yt-range" type="range" min="0" max="1" step="0.01" value="1" oninput="setVolume(this.value)">
                         </div>
                         <div class="yt-actions-right">
                             <select id="speedSelect" class="yt-select" onchange="changeSpeed(this.value)">
                                 <option value="0.5">0.5x</option><option value="0.75">0.75x</option><option value="1" selected>1x</option><option value="1.25">1.25x</option><option value="1.5">1.5x</option><option value="2">2x</option>
                             </select>
-                            <button id="theaterBtn" class="yt-btn" onclick="toggleTheaterMode()">Th??tre</button>
-                            <button id="fullScreenBtn" class="yt-btn" onclick="toggleFullScreen()">Plein ?cran</button>
+                            <button id="theaterBtn" class="yt-btn" onclick="toggleTheaterMode()">Théâtre</button>
+                            <button id="fullScreenBtn" class="yt-btn" onclick="toggleFullScreen()">Plein écran</button>
                             <button id="favoriteModalBtn" class="yt-btn" onclick="toggleFavoriteModal(currentVideos[currentIndex]?.id, this)">Favori</button>
                             <button class="yt-btn" onclick="closePlayer()">Fermer</button>
                         </div>
                     </div>
                 </div>
             </div>
-            <aside class="up-next-panel" aria-label="Vid?os ? suivre">
-                <h3 class="up-next-title">? suivre</h3>
+            <aside class="up-next-panel" aria-label="Vidéos à suivre">
+                <h3 class="up-next-title">À suivre</h3>
                 <div id="upNextList" class="up-next-list"></div>
             </aside>
         </div>
@@ -1164,7 +1165,7 @@
             details.className = 'up-next-details';
             const title = document.createElement('div');
             title.className = 'up-next-video-title';
-            title.textContent = video.title || video.fileName || 'Vid?o sans titre';
+            title.textContent = video.title || video.fileName || 'Vidéo sans titre';
             const creators = document.createElement('div');
             creators.className = 'up-next-meta';
             creators.textContent = Array.isArray(video.creators) && video.creators.length
@@ -1172,7 +1173,7 @@
                 : 'Unknown';
             const duration = document.createElement('div');
             duration.className = 'up-next-meta';
-            duration.textContent = formatDuration(video.durationMs) || 'Dur?e inconnue';
+            duration.textContent = formatDuration(video.durationMs) || 'Durée inconnue';
 
             details.append(title, creators, duration);
             button.append(thumbnail, details);
@@ -1420,6 +1421,15 @@
         fetch(`/api/videos/${videoId}/watch-session?watchedSeconds=${watchedSeconds}&page=favorites`, { method: 'POST' }).catch(() => {});
     }
 
+    function flashCenterPlayButton(isPlaying) {
+        const button = document.getElementById('centerPlayButton');
+        if (!button) return;
+        button.textContent = isPlaying ? '⏸' : '▶';
+        button.classList.remove('pulse');
+        void button.offsetWidth; // force reflow to restart the animation
+        button.classList.add('pulse');
+    }
+
     function initPlayerEvents() {
         const player = document.getElementById('mainPlayer');
         const seek = document.getElementById('seekBar');
@@ -1433,12 +1443,16 @@
         player.addEventListener('play', () => {
             const btn = document.getElementById('playPauseBtn');
             if (btn) btn.textContent = '⏸';
+            flashCenterPlayButton(true);
         });
 
         player.addEventListener('pause', () => {
             const btn = document.getElementById('playPauseBtn');
             if (btn) btn.textContent = '▶';
+            flashCenterPlayButton(false);
         });
+
+        player.addEventListener('click', () => playOrPause());
 
         player.addEventListener('timeupdate', updateTimeline);
         player.addEventListener('loadedmetadata', updateTimeline);
@@ -1528,6 +1542,9 @@
         const modalVisible = document.getElementById('playerModal').style.display === 'flex';
         if (!modalVisible) return;
 
+        const activeTag = document.activeElement?.tagName;
+        const isTypingInField = activeTag === 'INPUT' || activeTag === 'TEXTAREA' || activeTag === 'SELECT' || document.activeElement?.isContentEditable;
+
         if (e.key === 'PageDown') {
             playNext();
         } else if (e.key === 'PageUp') {
@@ -1538,6 +1555,9 @@
             seekBy(-10);
         } else if (e.key === 'Escape') {
             closePlayer();
+        } else if (e.key === ' ' && !isTypingInField) {
+            e.preventDefault();
+            playOrPause();
         }
     });
 

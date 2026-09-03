@@ -597,6 +597,15 @@ let currentVideos = [];
             });
         }
 
+        function flashCenterPlayButton(isPlaying) {
+            const button = document.getElementById('centerPlayButton');
+            if (!button) return;
+            button.textContent = isPlaying ? '⏸' : '▶';
+            button.classList.remove('pulse');
+            void button.offsetWidth; // force reflow to restart the animation
+            button.classList.add('pulse');
+        }
+
         function initPlayerEvents() {
             const player = document.getElementById('mainPlayer');
             const seek = document.getElementById('seekBar');
@@ -609,11 +618,15 @@ let currentVideos = [];
 
             player.addEventListener('play', () => {
                 document.getElementById('playPauseBtn').textContent = '⏸';
+                flashCenterPlayButton(true);
             });
 
             player.addEventListener('pause', () => {
                 document.getElementById('playPauseBtn').textContent = '▶';
+                flashCenterPlayButton(false);
             });
+
+            player.addEventListener('click', () => playOrPause());
 
             player.addEventListener('timeupdate', updateTimeline);
             player.addEventListener('loadedmetadata', updateTimeline);
@@ -696,6 +709,9 @@ let currentVideos = [];
             const modalVisible = document.getElementById('playerModal').style.display === 'flex';
             if (!modalVisible) return;
 
+            const activeTag = document.activeElement?.tagName;
+            const isTypingInField = activeTag === 'INPUT' || activeTag === 'TEXTAREA' || activeTag === 'SELECT' || document.activeElement?.isContentEditable;
+
             if (e.key === 'PageDown') {
                 playNext();
             } else if (e.key === 'PageUp') {
@@ -706,6 +722,9 @@ let currentVideos = [];
                 seekBy(-10);
             } else if (e.key === 'Escape') {
                 closePlayer();
+            } else if (e.key === ' ' && !isTypingInField) {
+                e.preventDefault();
+                playOrPause();
             }
         });
 

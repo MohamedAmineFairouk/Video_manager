@@ -102,11 +102,16 @@
 
         .player-shell {
             position: relative;
+            overflow: hidden;
+            border: 1px solid #303030;
+            border-radius: 12px;
+            background: #0f0f0f;
+            box-shadow: 0 24px 80px rgba(0, 0, 0, 0.55);
         }
 
         .player-layout {
             display: grid;
-            grid-template-columns: minmax(0, 1fr) 340px;
+            grid-template-columns: minmax(0, 1fr) 360px;
             align-items: start;
         }
 
@@ -117,33 +122,84 @@
         .player-video-wrap {
             position: relative;
             background: #000;
+            aspect-ratio: 16 / 9;
+            max-height: 66vh;
         }
 
         .player-video-wrap #mainPlayer {
             width: 100%;
-            max-height: 66vh;
+            height: 100%;
+            max-height: none;
             background: #000;
             display: block;
+            object-fit: contain;
+            cursor: pointer;
+        }
+
+        .center-play-button {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 84px;
+            height: 84px;
+            margin-top: -42px;
+            margin-left: -42px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            background: rgba(20, 20, 20, 0.75);
+            color: #fff;
+            font-size: 34px;
+            line-height: 1;
+            pointer-events: none;
+            opacity: 0;
+            transform: scale(0.7);
+            z-index: 5;
+        }
+
+        .center-play-button.pulse {
+            animation: centerPlayPulse 0.55s ease-out;
+        }
+
+        .center-play-button .icon-play {
+            margin-left: 6px;
+        }
+
+        @keyframes centerPlayPulse {
+            0% {
+                opacity: 0.95;
+                transform: scale(0.7);
+            }
+            30% {
+                opacity: 0.95;
+                transform: scale(1.05);
+            }
+            100% {
+                opacity: 0;
+                transform: scale(1.35);
+            }
         }
 
         .player-info-panel {
-            padding: 20px 24px;
-            background: linear-gradient(90deg, #0c1429, #132a4a);
-            border-top: 1px solid rgba(59, 130, 246, 0.2);
+            padding: 18px 20px 20px;
+            background: #0f0f0f;
+            border-top: 1px solid #303030;
         }
 
         .up-next-panel {
             max-height: 82vh;
             overflow-y: auto;
-            padding: 16px;
-            background: rgba(5, 10, 24, 0.9);
-            border-left: 1px solid rgba(59, 130, 246, 0.25);
+            padding: 18px 14px;
+            background: #0f0f0f;
+            border-left: 1px solid #303030;
         }
 
         .up-next-title {
             margin: 0 0 12px;
-            color: #dbeafe;
-            font-size: 16px;
+            color: #f1f5f9;
+            font-size: 17px;
+            font-weight: 700;
         }
 
         .up-next-list {
@@ -159,7 +215,7 @@
             gap: 10px;
             padding: 0;
             border: 0;
-            border-radius: 9px;
+            border-radius: 10px;
             background: transparent;
             color: inherit;
             text-align: left;
@@ -168,14 +224,14 @@
 
         .up-next-item:hover .up-next-thumbnail,
         .up-next-item:focus-visible .up-next-thumbnail {
-            box-shadow: 0 0 0 2px #38bdf8;
+            box-shadow: 0 0 0 2px #fff;
         }
 
         .up-next-thumbnail {
             width: 132px;
             aspect-ratio: 16 / 9;
             object-fit: cover;
-            border-radius: 7px;
+            border-radius: 8px;
             background: #000;
         }
 
@@ -188,7 +244,7 @@
             display: -webkit-box;
             overflow: hidden;
             margin-bottom: 5px;
-            color: #e0f2fe;
+            color: #f1f5f9;
             font-size: 13px;
             font-weight: 700;
             line-height: 1.3;
@@ -198,7 +254,7 @@
 
         .up-next-meta {
             overflow: hidden;
-            color: #94a3b8;
+            color: #aaa;
             font-size: 11px;
             line-height: 1.45;
             text-overflow: ellipsis;
@@ -242,6 +298,7 @@
             animation: spin 0.9s linear infinite;
             display: none;
             z-index: 4;
+            pointer-events: none;
         }
 
         .buffering-indicator.show {
@@ -256,4 +313,3 @@
             width: 96% !important;
             max-width: 1500px !important;
         }
-
