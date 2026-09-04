@@ -33,11 +33,11 @@ public class ThumbnailStorageService {
     }
 
     public Path getThumbPath(Long videoId) {
-        return thumbsDir.resolve(videoId + ".jpg");
+        return thumbsDir.resolve(videoId + "." + FileObfuscationService.IMAGE_EXTENSION);
     }
 
     public Path getStoryboardPath(Long videoId) {
-        return thumbsDir.resolve("storyboard_" + videoId + ".jpg");
+        return thumbsDir.resolve("storyboard_" + videoId + "." + FileObfuscationService.IMAGE_EXTENSION);
     }
 
     public Path getThumbPath(String videoFileName) {
@@ -63,8 +63,8 @@ public class ThumbnailStorageService {
         
         Matcher numberedVideoName = NUMBERED_VIDEO_NAME.matcher(baseName);
         String result = numberedVideoName.matches()
-                ? "thumb_" + numberedVideoName.group(1) + ".jpg"
-                : baseName + ".jpg";
+                ? "thumb_" + numberedVideoName.group(1) + "." + FileObfuscationService.IMAGE_EXTENSION
+                : baseName + "." + FileObfuscationService.IMAGE_EXTENSION;
         log.debug("[THUMBNAILS] toThumbnailName: {} -> cleanName={} -> baseName={} -> result={}",
                 videoFileName, cleanName, baseName, result);
         

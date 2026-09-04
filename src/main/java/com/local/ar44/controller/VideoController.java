@@ -16,18 +16,14 @@ import jakarta.servlet.http.HttpSession;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.core.io.Resource;
-import org.springframework.core.io.UrlResource;
 import org.springframework.http.ResponseEntity;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.net.MalformedURLException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.nio.file.StandardCopyOption;
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -48,6 +44,8 @@ public class VideoController {
     private final VideoResponseMapper videoResponseMapper;
     private final com.local.ar44.service.VideoImportService videoImportService;
     private final com.local.ar44.service.StoryboardService storyboardService;
+    private final com.local.ar44.service.FileObfuscationService fileObfuscationService;
+    private final com.local.ar44.service.ObfuscationMigrationService obfuscationMigrationService;
 
     public VideoController(VideoRepository videoRepository,
                            AppConfigRepository appConfigRepository,
@@ -57,7 +55,9 @@ public class VideoController {
                            com.local.ar44.service.CreatorService creatorService,
                            VideoResponseMapper videoResponseMapper,
                            com.local.ar44.service.VideoImportService videoImportService,
-                           com.local.ar44.service.StoryboardService storyboardService) {
+                           com.local.ar44.service.StoryboardService storyboardService,
+                           com.local.ar44.service.FileObfuscationService fileObfuscationService,
+                           com.local.ar44.service.ObfuscationMigrationService obfuscationMigrationService) {
         this.videoRepository = videoRepository;
         this.appConfigRepository = appConfigRepository;
         this.tagRepository = tagRepository;
@@ -67,6 +67,8 @@ public class VideoController {
         this.videoResponseMapper = videoResponseMapper;
         this.videoImportService = videoImportService;
         this.storyboardService = storyboardService;
+        this.fileObfuscationService = fileObfuscationService;
+        this.obfuscationMigrationService = obfuscationMigrationService;
     }
 
     private Tag findOrCreateTag(String name) {
@@ -104,22 +106,63 @@ public class VideoController {
     }
 
     @GetMapping("/file")
-    public ResponseEntity<Resource> getVideoFile(@RequestParam String fileName) {
+    public ResponseEntity<org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody> getVideoFile(
+            @RequestParam String fileName,
+            @RequestHeader(value = "Range", required = false) String rangeHeader) throws java.io.IOException {
         Path videoPath = Paths.get(videosDir, fileName).toAbsolutePath();
         log.info("[VIDEO-READ] Demande de lecture pour {}", videoPath);
         if (!Files.exists(videoPath)) {
             log.error("[VIDEO-ERROR] Fichier vidéo introuvable: {}", videoPath);
             return ResponseEntity.notFound().build();
         }
-        try {
-            Resource resource = new UrlResource(videoPath.toUri());
-            return ResponseEntity.ok()
-                    .header("Content-Type", "video/mp4")
-                    .body(resource);
-        } catch (Exception e) {
-            log.error("[VIDEO-ERROR] Erreur lors de la lecture de {}: {}", videoPath, e.getMessage());
-            return ResponseEntity.internalServerError().build();
+
+        long fileSize = Files.size(videoPath);
+        long start = 0;
+        long end = fileSize - 1;
+
+        if (rangeHeader != null && rangeHeader.startsWith("bytes=")) {
+            String[] parts = rangeHeader.substring(6).split("-");
+            try {
+                if (!parts[0].isBlank()) start = Long.parseLong(parts[0]);
+                if (parts.length > 1 && !parts[1].isBlank()) end = Long.parseLong(parts[1]);
+            } catch (NumberFormatException ignored) {
+                // fall back to serving the whole file
+            }
         }
+        end = Math.min(end, fileSize - 1);
+        if (start > end) start = end;
+        long contentLength = end - start + 1;
+        long rangeStart = start;
+        long rangeEnd = end;
+
+        org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody body = outputStream -> {
+            try (java.io.RandomAccessFile raf = new java.io.RandomAccessFile(videoPath.toFile(), "r")) {
+                raf.seek(rangeStart);
+                byte[] buffer = new byte[64 * 1024];
+                long remaining = rangeEnd - rangeStart + 1;
+                long pos = rangeStart;
+                while (remaining > 0) {
+                    int toRead = (int) Math.min(buffer.length, remaining);
+                    int read = raf.read(buffer, 0, toRead);
+                    if (read == -1) break;
+                    fileObfuscationService.transform(buffer, 0, read, pos);
+                    outputStream.write(buffer, 0, read);
+                    pos += read;
+                    remaining -= read;
+                }
+            }
+        };
+
+        boolean partial = rangeHeader != null;
+        ResponseEntity.BodyBuilder builder = ResponseEntity
+                .status(partial ? org.springframework.http.HttpStatus.PARTIAL_CONTENT : org.springframework.http.HttpStatus.OK)
+                .header("Content-Type", "video/mp4")
+                .header("Accept-Ranges", "bytes")
+                .header("Content-Length", String.valueOf(contentLength));
+        if (partial) {
+            builder.header("Content-Range", "bytes " + rangeStart + "-" + rangeEnd + "/" + fileSize);
+        }
+        return builder.body(body);
     }
 
     // ========================
@@ -434,7 +477,7 @@ public class VideoController {
 
 
     @GetMapping("/thumbnail")
-    public ResponseEntity<Resource> getThumbnail(@RequestParam Long id) throws MalformedURLException {
+    public ResponseEntity<byte[]> getThumbnail(@RequestParam Long id) throws java.io.IOException {
         Video video = videoRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Video introuvable"));
 
@@ -449,22 +492,22 @@ public class VideoController {
             return ResponseEntity.notFound().build();
         }
 
-        Resource resource = new UrlResource(path.toUri());
+        byte[] bytes = fileObfuscationService.transform(Files.readAllBytes(path));
         return ResponseEntity.ok()
                 .header("Content-Type", "image/jpeg")
-                .body(resource);
+                .body(bytes);
     }
 
     @GetMapping("/storyboard")
-    public ResponseEntity<Resource> getStoryboard(@RequestParam Long id) throws MalformedURLException {
+    public ResponseEntity<byte[]> getStoryboard(@RequestParam Long id) throws java.io.IOException {
         Path path = thumbnailStorageService.getStoryboardPath(id);
         if (!Files.exists(path)) {
             return ResponseEntity.notFound().build();
         }
-        Resource resource = new UrlResource(path.toUri());
+        byte[] bytes = fileObfuscationService.transform(Files.readAllBytes(path));
         return ResponseEntity.ok()
                 .header("Content-Type", "image/jpeg")
-                .body(resource);
+                .body(bytes);
     }
 
     @PostMapping("/storyboards/generate")
@@ -561,6 +604,11 @@ public class VideoController {
         return ResponseEntity.ok(videoImportService.importFromDisk());
     }
 
+    @PostMapping("/migrate-obfuscation")
+    public ResponseEntity<Map<String, Object>> migrateObfuscation() {
+        return ResponseEntity.ok(obfuscationMigrationService.migrateExisting());
+    }
+
     @PostMapping("/upload")
     public ResponseEntity<String> uploadVideo(
             @RequestParam String title,
@@ -571,10 +619,14 @@ public class VideoController {
             @RequestParam(value = "videoFile", required = false) MultipartFile videoFile
     ) {
         try {
+            // Les fichiers sont brouillés sur disque : on renomme vers l'extension interne.
+            String baseName = fileName.contains(".") ? fileName.substring(0, fileName.lastIndexOf('.')) : fileName;
+            String storedFileName = baseName + "." + com.local.ar44.service.FileObfuscationService.VIDEO_EXTENSION;
+
             // Création de l'entité Video
             Video video = new Video();
             video.setTitle(title);
-            video.setFileName(fileName);
+            video.setFileName(storedFileName);
             if (sourceIndex != null) video.setSourceIndex(sourceIndex);
             video.setCreatedAt(LocalDateTime.now());
             // Créateurs (optionnel)
@@ -595,17 +647,22 @@ public class VideoController {
             if (thumbnailFile == null || thumbnailFile.isEmpty()) {
                 return ResponseEntity.badRequest().body("Thumbnail obligatoire");
             }
-            Path thumbPath = thumbnailStorageService.getThumbPath(fileName);
+            Path thumbPath = thumbnailStorageService.getThumbPath(storedFileName);
             Files.createDirectories(thumbPath.getParent());
-            try (var in = thumbnailFile.getInputStream()) {
-                Files.copy(in, thumbPath, StandardCopyOption.REPLACE_EXISTING);
-            }
+            Files.write(thumbPath, fileObfuscationService.transform(thumbnailFile.getBytes()));
             // Enregistrement du fichier vidéo (optionnel)
             if (videoFile != null && !videoFile.isEmpty()) {
-                Path videoPath = Paths.get(videosDir, fileName).toAbsolutePath();
+                Path videoPath = Paths.get(videosDir, storedFileName).toAbsolutePath();
                 Files.createDirectories(videoPath.getParent());
-                try (var in = videoFile.getInputStream()) {
-                    Files.copy(in, videoPath, StandardCopyOption.REPLACE_EXISTING);
+                try (var in = videoFile.getInputStream(); var out = Files.newOutputStream(videoPath)) {
+                    byte[] buffer = new byte[64 * 1024];
+                    long pos = 0;
+                    int read;
+                    while ((read = in.read(buffer)) != -1) {
+                        fileObfuscationService.transform(buffer, 0, read, pos);
+                        out.write(buffer, 0, read);
+                        pos += read;
+                    }
                 }
             }
             return ResponseEntity.ok("Ajouté");

@@ -17,8 +17,8 @@ export function AuthProvider({ children }) {
 
   useEffect(() => { checkAuth() }, [checkAuth])
 
-  const login = useCallback(async (username, password) => {
-    await api.post(`/config/login?username=${encodeURIComponent(username)}&password=${encodeURIComponent(password)}`)
+  const login = useCallback(async (pin) => {
+    await api.post(`/config/login?pin=${encodeURIComponent(pin)}`)
     setAuthenticated(true)
   }, [])
 

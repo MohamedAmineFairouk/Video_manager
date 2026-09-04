@@ -30,28 +30,43 @@ public class AppConfigControllers {
         return ResponseEntity.ok("Host mis à jour : " + host);
     }
 
-    // 🔹 POST → login
+    // 🔹 POST → login (code PIN)
     @PostMapping("/login")
-    public ResponseEntity<String> login(@RequestParam String username, @RequestParam String password, HttpSession session) {
-        if (service.login(username, password)) {
+    public ResponseEntity<String> login(@RequestParam String pin, HttpSession session) {
+        if (service.login(pin)) {
             session.setAttribute("authenticated", true);
-            session.setAttribute("username", username);
+            session.setAttribute("username", "user");
             return ResponseEntity.ok("Authentification réussie");
         }
-        return ResponseEntity.status(401).body("Identifiants invalides");
+        return ResponseEntity.status(401).body("Code incorrect");
     }
 
-    // 🔹 POST → set credentials (première configuration)
+    // 🔹 POST → définir le code PIN (première configuration)
     @PostMapping("/credentials/set")
-    public ResponseEntity<String> setCredentials(@RequestParam String username, @RequestParam String password) {
-        service.setCredentials(username, password);
-        return ResponseEntity.ok("Identifiants configurés");
+    public ResponseEntity<String> setPin(@RequestParam String pin) {
+        service.setPin(pin);
+        return ResponseEntity.ok("Code configuré");
     }
 
-    // 🔹 GET → vérifier si des identifiants existent
+    // 🔹 GET → vérifier si un code PIN existe déjà
     @GetMapping("/credentials/exists")
     public ResponseEntity<Boolean> credentialsExist() {
-        return ResponseEntity.ok(service.hasCredentials());
+        return ResponseEntity.ok(service.hasPin());
+    }
+
+    // 🔹 POST → changer le code PIN (nécessite l'ancien code)
+    @PostMapping("/pin/change")
+    public ResponseEntity<String> changePin(@RequestBody java.util.Map<String, String> body) {
+        String oldPin = body.get("oldPin");
+        String newPin = body.get("newPin");
+        if (!service.verifyPin(oldPin)) {
+            return ResponseEntity.status(401).body("Code actuel incorrect");
+        }
+        if (newPin == null || newPin.length() != 4) {
+            return ResponseEntity.badRequest().body("Le nouveau code doit contenir 4 chiffres");
+        }
+        service.setPin(newPin);
+        return ResponseEntity.ok("Code mis à jour");
     }
 
     // 🔹 GET → vérifier authentification

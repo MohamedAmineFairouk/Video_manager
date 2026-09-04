@@ -37,9 +37,9 @@ public class StatsController {
 
     @PostMapping("/reset")
     public ResponseEntity<String> resetCounters(@RequestBody Map<String, String> body) {
-        String password = body.get("password");
-        if (!appConfigService.verifyPassword(password)) {
-            return ResponseEntity.status(401).body("Mot de passe incorrect");
+        String pin = body.get("pin");
+        if (!appConfigService.verifyPin(pin)) {
+            return ResponseEntity.status(401).body("Code incorrect");
         }
         statsService.resetCounters();
         return ResponseEntity.ok("Statistiques réinitialisées");

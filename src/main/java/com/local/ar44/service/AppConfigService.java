@@ -33,43 +33,33 @@ public class AppConfigService {
         return host;
     }
 
-    public boolean login(String username, String password) {
-        return repository.findAll()
-                .stream()
-                .findFirst()
-                .map(config -> {
-                    String storedUser = config.getUsername();
-                    String storedPass = config.getPassword();
-                    return username.equals(storedUser) && password.equals(storedPass);
-                })
-                .orElse(false);
+    public boolean login(String pin) {
+        return verifyPin(pin);
     }
 
-    public void setCredentials(String username, String password) {
+    public void setPin(String pin) {
         AppConfig config = repository.findAll()
                 .stream()
                 .findFirst()
                 .orElse(new AppConfig());
 
-        config.setUsername(username);
-        config.setPassword(password);
+        config.setPin(pin);
         repository.save(config);
     }
 
-    public boolean verifyPassword(String password) {
+    public boolean verifyPin(String pin) {
         return repository.findAll()
                 .stream()
                 .findFirst()
-                .map(config -> password != null && password.equals(config.getPassword()))
+                .map(config -> pin != null && pin.equals(config.getPin()))
                 .orElse(false);
     }
 
-    public boolean hasCredentials() {
+    public boolean hasPin() {
         return repository.findAll()
                 .stream()
                 .findFirst()
-                .map(config -> config.getUsername() != null && !config.getUsername().isEmpty()
-                        && config.getPassword() != null && !config.getPassword().isEmpty())
+                .map(config -> config.getPin() != null && !config.getPin().isEmpty())
                 .orElse(false);
     }
 }

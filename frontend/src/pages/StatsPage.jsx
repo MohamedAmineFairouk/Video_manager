@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import Sidebar from '../components/Sidebar'
 import BarChart from '../components/BarChart'
 import ConfirmModal from '../components/ConfirmModal'
+import PinInput from '../components/PinInput'
 import { api } from '../api/client'
 import { formatClock } from '../utils'
 
@@ -21,7 +22,7 @@ function sum(data) {
 export default function StatsPage() {
   const [stats, setStats] = useState(null)
   const [resetOpen, setResetOpen] = useState(false)
-  const [resetPassword, setResetPassword] = useState('')
+  const [resetPin, setResetPin] = useState('')
   const [resetStatus, setResetStatus] = useState('')
   const [resetting, setResetting] = useState(false)
 
@@ -32,6 +33,14 @@ export default function StatsPage() {
   const [deleteTarget, setDeleteTarget] = useState(null) // { type: 'creator'|'tag', id, name }
   const [clearTagsOpen, setClearTagsOpen] = useState(false)
   const [clearTagsStatus, setClearTagsStatus] = useState('')
+
+  const [pinChangeOpen, setPinChangeOpen] = useState(false)
+  const [pinChangeStep, setPinChangeStep] = useState('current') // 'current' | 'new' | 'confirm'
+  const [pinChangeValue, setPinChangeValue] = useState('')
+  const [oldPinValue, setOldPinValue] = useState('')
+  const [newPinValue, setNewPinValue] = useState('')
+  const [pinChangeStatus, setPinChangeStatus] = useState('')
+  const [pinChangeBusy, setPinChangeBusy] = useState(false)
 
   const reload = () => api.get('/stats/overview').then(setStats).catch(() => {})
   const loadCreators = () => {
@@ -45,20 +54,62 @@ export default function StatsPage() {
 
   useEffect(() => { reload(); loadCreators(); loadTags() }, [])
 
-  const confirmReset = async () => {
-    if (!resetPassword) return
+  const confirmReset = async (pinValue) => {
     setResetting(true)
     setResetStatus('')
     try {
-      await api.post('/stats/reset', { password: resetPassword })
+      await api.post('/stats/reset', { pin: pinValue })
       setResetStatus('Statistiques réinitialisées ✔')
-      setResetPassword('')
+      setResetPin('')
       setResetOpen(false)
       reload()
     } catch (err) {
-      setResetStatus(err.message || 'Mot de passe incorrect')
+      setResetStatus(err.message || 'Code incorrect')
+      setResetPin('')
     } finally {
       setResetting(false)
+    }
+  }
+
+  const resetPinChangeFlow = () => {
+    setPinChangeStep('current')
+    setPinChangeValue('')
+    setOldPinValue('')
+    setNewPinValue('')
+  }
+
+  const handleOldPinComplete = (value) => {
+    setOldPinValue(value)
+    setPinChangeValue('')
+    setPinChangeStep('new')
+  }
+
+  const handleNewPinComplete = (value) => {
+    setNewPinValue(value)
+    setPinChangeValue('')
+    setPinChangeStep('confirm')
+  }
+
+  const handleConfirmPinComplete = async (value) => {
+    if (value !== newPinValue) {
+      setPinChangeStatus('Les nouveaux codes ne correspondent pas')
+      setPinChangeValue('')
+      setNewPinValue('')
+      setPinChangeStep('new')
+      return
+    }
+    setPinChangeBusy(true)
+    setPinChangeStatus('')
+    try {
+      await api.post('/config/pin/change', { oldPin: oldPinValue, newPin: value })
+      setPinChangeStatus('Code PIN mis à jour ✔')
+      setPinChangeOpen(false)
+      resetPinChangeFlow()
+    } catch (err) {
+      setPinChangeStatus(err.message || 'Erreur')
+      resetPinChangeFlow()
+    } finally {
+      setPinChangeBusy(false)
     }
   }
 
@@ -87,34 +138,47 @@ export default function StatsPage() {
       <main className="content">
         <div className="stats-page-header">
           <h1 className="page-title" style={{ margin: 0 }}>Statistiques</h1>
-          <button className="btn-secondary danger-button" style={{ width: 'auto' }} onClick={() => setResetOpen((o) => !o)}>
-            Réinitialiser les compteurs
-          </button>
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+            <button className="btn-secondary" style={{ width: 'auto' }} onClick={() => { setPinChangeOpen((o) => !o); resetPinChangeFlow() }}>
+              Changer le code PIN
+            </button>
+            <button className="btn-secondary danger-button" style={{ width: 'auto' }} onClick={() => setResetOpen((o) => !o)}>
+              Réinitialiser les compteurs
+            </button>
+          </div>
         </div>
+
+        {pinChangeOpen && (
+          <div className="host-box" style={{ maxWidth: 420, marginBottom: 20 }}>
+            <p className="muted-note" style={{ marginTop: 0 }}>
+              {pinChangeStep === 'current' && "Entre ton code PIN actuel."}
+              {pinChangeStep === 'new' && "Choisis un nouveau code à 4 chiffres."}
+              {pinChangeStep === 'confirm' && "Confirme le nouveau code."}
+            </p>
+            {pinChangeStep === 'current' && (
+              <PinInput key="current" length={4} value={pinChangeValue} onChange={setPinChangeValue} onComplete={handleOldPinComplete} />
+            )}
+            {pinChangeStep === 'new' && (
+              <PinInput key="new" length={4} value={pinChangeValue} onChange={setPinChangeValue} onComplete={handleNewPinComplete} />
+            )}
+            {pinChangeStep === 'confirm' && (
+              <PinInput key="confirm" length={4} value={pinChangeValue} onChange={setPinChangeValue} onComplete={handleConfirmPinComplete} />
+            )}
+            {pinChangeBusy && <div className="status">...</div>}
+          </div>
+        )}
+        {pinChangeStatus && (
+          <div className="status" style={{ color: pinChangeStatus.includes('✔') ? '#4ade80' : '#f87171', marginBottom: 12 }}>{pinChangeStatus}</div>
+        )}
         <p className="page-subtitle">Ton activité et tes habitudes de visionnage</p>
 
         {resetOpen && (
           <div className="host-box" style={{ maxWidth: 420, marginBottom: 20, borderColor: 'rgba(239,68,68,0.4)' }}>
             <p className="muted-note" style={{ marginTop: 0 }}>
-              Cette action supprime définitivement l'historique des vues et des accès. Confirme avec ton mot de passe.
+              Cette action supprime définitivement l'historique des vues et des accès. Confirme avec ton code PIN.
             </p>
-            <div style={{ display: 'flex', gap: 8 }}>
-              <input
-                className="host-input"
-                type="password"
-                placeholder="Mot de passe"
-                value={resetPassword}
-                onChange={(e) => setResetPassword(e.target.value)}
-                onKeyDown={(e) => { if (e.key === 'Enter') confirmReset() }}
-                autoFocus
-              />
-              <button
-                className="btn"
-                style={{ width: 'auto', margin: 0, background: 'linear-gradient(135deg, #ef4444, #b91c1c)' }}
-                disabled={!resetPassword || resetting}
-                onClick={confirmReset}
-              >Confirmer</button>
-            </div>
+            <PinInput length={4} value={resetPin} onChange={setResetPin} onComplete={confirmReset} error={resetStatus && !resetStatus.includes('✔')} />
+            {resetting && <div className="status">...</div>}
             {resetStatus && (
               <div className="status" style={{ color: resetStatus.includes('✔') ? '#4ade80' : '#f87171' }}>{resetStatus}</div>
             )}
