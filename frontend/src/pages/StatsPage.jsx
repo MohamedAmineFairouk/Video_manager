@@ -30,6 +30,8 @@ export default function StatsPage() {
   const [tags, setTags] = useState([])
   const [tagsLoading, setTagsLoading] = useState(true)
   const [deleteTarget, setDeleteTarget] = useState(null) // { type: 'creator'|'tag', id, name }
+  const [clearTagsOpen, setClearTagsOpen] = useState(false)
+  const [clearTagsStatus, setClearTagsStatus] = useState('')
 
   const reload = () => api.get('/stats/overview').then(setStats).catch(() => {})
   const loadCreators = () => {
@@ -70,6 +72,13 @@ export default function StatsPage() {
       setTags((prev) => prev.filter((t) => t.id !== deleteTarget.id))
     }
     setDeleteTarget(null)
+  }
+
+  const confirmClearTagAssignments = async () => {
+    const result = await api.post('/videos/tags/clear-assignments')
+    setClearTagsStatus(`${result.videosUpdated} vidéo(s) mise(s) à jour ✔`)
+    setClearTagsOpen(false)
+    setTimeout(() => setClearTagsStatus(''), 3000)
   }
 
   return (
@@ -208,10 +217,16 @@ export default function StatsPage() {
         </div>
 
         <div className="stats-section">
-          <h2 className="stats-section-title">🏷 Tags</h2>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8, marginBottom: 6 }}>
+            <h2 className="stats-section-title" style={{ margin: 0 }}>🏷 Tags</h2>
+            <button className="btn-secondary danger-button" style={{ width: 'auto' }} onClick={() => setClearTagsOpen(true)}>
+              Retirer tous les tags des vidéos
+            </button>
+          </div>
           <p className="muted-note" style={{ marginBottom: 12 }}>
-            Supprimer un tag le retire de toutes les vidéos associées.
+            Supprimer un tag le retire de toutes les vidéos associées. "Retirer tous les tags" détache les tags des vidéos sans supprimer la liste ci-dessous.
           </p>
+          {clearTagsStatus && <div className="status" style={{ color: '#4ade80' }}>{clearTagsStatus}</div>}
 
           {tagsLoading && <div className="status">Chargement...</div>}
           {!tagsLoading && tags.length === 0 && <div className="empty-state">Aucun tag pour le moment.</div>}
@@ -232,6 +247,13 @@ export default function StatsPage() {
         text={`Supprimer ${deleteTarget?.type === 'tag' ? 'le tag' : 'le créateur'} "${deleteTarget?.name}" ? Il sera retiré de toutes les vidéos.`}
         onConfirm={confirmDeleteTarget}
         onCancel={() => setDeleteTarget(null)}
+      />
+
+      <ConfirmModal
+        open={clearTagsOpen}
+        text="Retirer tous les tags de toutes les vidéos ? La liste de tags ci-dessous sera conservée, seules les associations avec les vidéos seront supprimées."
+        onConfirm={confirmClearTagAssignments}
+        onCancel={() => setClearTagsOpen(false)}
       />
     </div>
   )

@@ -242,6 +242,22 @@ public class VideoController {
         return ResponseEntity.ok().build();
     }
 
+    @Transactional
+    @PostMapping("/tags/clear-assignments")
+    public ResponseEntity<Map<String, Object>> clearTagAssignments() {
+        List<Video> affected = videoRepository.findAll().stream()
+                .filter(v -> v.getTags() != null && !v.getTags().isEmpty())
+                .toList();
+        for (Video v : affected) {
+            v.getTags().clear();
+        }
+        videoRepository.saveAll(affected);
+
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("videosUpdated", affected.size());
+        return ResponseEntity.ok(result);
+    }
+
     // ========================
     // ➕ CREATE VIDEO
     // ========================

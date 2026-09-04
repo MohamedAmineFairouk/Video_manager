@@ -15,7 +15,7 @@ export default function LibraryPage() {
   const [loading, setLoading] = useState(true)
   const [status, setStatus] = useState('')
 
-  const [sort, setSort] = useState('recent')
+  const [sort, setSort] = useState('oldest')
   const [creatorFilter, setCreatorFilter] = useState('')
   const [tagFilter, setTagFilter] = useState(new Set())
   const [levelFilter, setLevelFilter] = useState(null) // 1..5, inverted scale like the star UI
@@ -82,7 +82,7 @@ export default function LibraryPage() {
   const pageItems = filtered.slice((clampedPage - 1) * pageSize, clampedPage * pageSize)
 
   const resetFilters = () => {
-    setCreatorFilter(''); setTagFilter(new Set()); setLevelFilter(null); setFavoriteOnly(false); setSort('recent'); setPage(1)
+    setCreatorFilter(''); setTagFilter(new Set()); setLevelFilter(null); setFavoriteOnly(false); setSort('oldest'); setPage(1)
   }
 
   const toggleTagFilter = (tag) => {

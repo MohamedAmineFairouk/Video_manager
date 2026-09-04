@@ -221,6 +221,7 @@ export default function VideoPlayerModal() {
   return (
     <>
       <div className="player-modal" onClick={(e) => { if (e.target === e.currentTarget) handleClose() }}>
+        <button className="player-close-btn" title="Fermer" onClick={handleClose}>✕</button>
         <div className={`player-shell ${theater ? 'theater' : ''}`}>
           <div className="player-layout">
             <div className="player-main-column">
