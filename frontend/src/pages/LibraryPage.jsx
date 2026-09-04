@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
 import Sidebar from '../components/Sidebar'
-import VideoCard from '../components/VideoCard'
+import VideoGrid from '../components/VideoGrid'
+import ViewToggle from '../components/ViewToggle'
 import Pagination from '../components/Pagination'
 import AddVideoModal from '../components/AddVideoModal'
 import { api } from '../api/client'
 import { usePlayer } from '../context/PlayerContext'
+import { useViewPreferences } from '../context/ViewPreferencesContext'
 
 export default function LibraryPage() {
   const [videos, setVideos] = useState([])
@@ -23,6 +25,7 @@ export default function LibraryPage() {
   const [addModalOpen, setAddModalOpen] = useState(false)
 
   const { openPlayer } = usePlayer()
+  const { viewMode, gridSize } = useViewPreferences()
 
   const loadAll = async () => {
     setLoading(true)
@@ -179,35 +182,34 @@ export default function LibraryPage() {
 
         <div className="list-controls">
           <div className="count-box">{filtered.length} vidéo(s)</div>
-          <label style={{ fontSize: 13, color: '#cbd5e1', display: 'flex', alignItems: 'center', gap: 8 }}>
-            Afficher
-            <select className="page-size-select" value={pageSize} onChange={(e) => { setPageSize(Number(e.target.value)); setPage(1) }}>
-              <option value="20">20</option>
-              <option value="50">50</option>
-              <option value="100">100</option>
-              <option value="200">200</option>
-            </select>
-          </label>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+            <ViewToggle />
+            <label style={{ fontSize: 13, color: '#cbd5e1', display: 'flex', alignItems: 'center', gap: 8 }}>
+              Afficher
+              <select className="page-size-select" value={pageSize} onChange={(e) => { setPageSize(Number(e.target.value)); setPage(1) }}>
+                <option value="20">20</option>
+                <option value="50">50</option>
+                <option value="100">100</option>
+                <option value="200">200</option>
+              </select>
+            </label>
+          </div>
         </div>
 
         <Pagination page={clampedPage} totalPages={totalPages} onChange={setPage} />
 
-        {!loading && pageItems.length > 0 && (
-          <div className="video-grid">
-            {pageItems.map((video) => (
-              <div key={video.id} style={{ position: 'relative' }}>
-                <input
-                  type="checkbox"
-                  checked={selected.has(video.id)}
-                  onChange={() => toggleSelect(video.id)}
-                  style={{ position: 'absolute', top: 8, right: 8, width: 20, height: 20, cursor: 'pointer', zIndex: 10 }}
-                />
-                <VideoCard video={video} onOpen={() => handleOpen(video)} onToggleFavorite={toggleFavorite} />
-              </div>
-            ))}
-          </div>
+        {!loading && (
+          <VideoGrid
+            videos={pageItems}
+            onOpen={handleOpen}
+            onToggleFavorite={toggleFavorite}
+            viewMode={viewMode}
+            gridSize={gridSize}
+            selectable
+            selectedIds={selected}
+            onToggleSelect={(video) => toggleSelect(video.id)}
+          />
         )}
-        {!loading && pageItems.length === 0 && <div className="empty-state">Aucune vidéo trouvée.</div>}
       </main>
 
       <AddVideoModal open={addModalOpen} onClose={() => setAddModalOpen(false)} onAdded={loadAll} />

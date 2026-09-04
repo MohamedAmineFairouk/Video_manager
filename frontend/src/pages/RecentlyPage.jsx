@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
 import Sidebar from '../components/Sidebar'
 import VideoGrid from '../components/VideoGrid'
+import ViewToggle from '../components/ViewToggle'
 import Pagination from '../components/Pagination'
 import AddVideoModal from '../components/AddVideoModal'
 import { api } from '../api/client'
 import { usePlayer } from '../context/PlayerContext'
+import { useViewPreferences } from '../context/ViewPreferencesContext'
 
 export default function RecentlyPage() {
   const [videos, setVideos] = useState([])
@@ -13,6 +15,7 @@ export default function RecentlyPage() {
   const [pageSize] = useState(50)
   const [addModalOpen, setAddModalOpen] = useState(false)
   const { openPlayer } = usePlayer()
+  const { viewMode, gridSize } = useViewPreferences()
 
   const load = async () => {
     setLoading(true)
@@ -49,10 +52,24 @@ export default function RecentlyPage() {
     <div className="app">
       <Sidebar onAddVideo={() => setAddModalOpen(true)} />
       <main className="content">
-        <h1 className="page-title">Récemment vus</h1>
-        <p className="page-subtitle">Les 20 dernières vidéos visionnées</p>
+        <div className="list-controls">
+          <div>
+            <h1 className="page-title" style={{ marginBottom: 4 }}>Récemment vus</h1>
+            <p className="page-subtitle" style={{ margin: 0 }}>Les 20 dernières vidéos visionnées</p>
+          </div>
+          <ViewToggle />
+        </div>
         <Pagination page={clampedPage} totalPages={totalPages} onChange={setPage} />
-        {!loading && <VideoGrid videos={pageItems} onOpen={handleOpen} onToggleFavorite={toggleFavorite} emptyMessage="Aucune vidéo regardée récemment." />}
+        {!loading && (
+          <VideoGrid
+            videos={pageItems}
+            onOpen={handleOpen}
+            onToggleFavorite={toggleFavorite}
+            emptyMessage="Aucune vidéo regardée récemment."
+            viewMode={viewMode}
+            gridSize={gridSize}
+          />
+        )}
       </main>
       <AddVideoModal open={addModalOpen} onClose={() => setAddModalOpen(false)} onAdded={load} />
     </div>

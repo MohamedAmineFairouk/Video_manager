@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react'
 import Sidebar from '../components/Sidebar'
 import VideoGrid from '../components/VideoGrid'
+import ViewToggle from '../components/ViewToggle'
 import AddVideoModal from '../components/AddVideoModal'
 import ConfirmModal from '../components/ConfirmModal'
 import { api } from '../api/client'
 import { useRouter } from '../router'
 import { usePlayer } from '../context/PlayerContext'
+import { useViewPreferences } from '../context/ViewPreferencesContext'
 
 export default function PlaylistDetailPage({ playlistId }) {
   const [playlist, setPlaylist] = useState(null)
@@ -16,6 +18,7 @@ export default function PlaylistDetailPage({ playlistId }) {
   const [addModalOpen, setAddModalOpen] = useState(false)
   const { navigate } = useRouter()
   const { openPlayer } = usePlayer()
+  const { viewMode, gridSize } = useViewPreferences()
 
   const load = async () => {
     setLoading(true)
@@ -52,6 +55,11 @@ export default function PlaylistDetailPage({ playlistId }) {
   const toggleFavorite = async (video) => {
     await api.get(`/videos/favorite/toggle?id=${video.id}`)
     setPlaylist((p) => ({ ...p, videos: p.videos.map((v) => (v.id === video.id ? { ...v, favorite: !v.favorite } : v)) }))
+  }
+
+  const reorder = async (newVideos) => {
+    setPlaylist((p) => ({ ...p, videos: newVideos }))
+    await api.post(`/playlists/${playlistId}/reorder`, newVideos.map((v) => v.id))
   }
 
   const handleOpen = (video) => {
@@ -94,12 +102,21 @@ export default function PlaylistDetailPage({ playlistId }) {
               </div>
             </div>
 
+            <div className="list-controls">
+              <div />
+              <ViewToggle />
+            </div>
+
             <VideoGrid
               videos={playlist.videos}
               onOpen={handleOpen}
               onToggleFavorite={toggleFavorite}
               emptyMessage="Cette playlist est vide. Ajoute des vidéos depuis le lecteur (bouton + Playlist)."
               extraAction={{ icon: '✕', title: 'Retirer de la playlist', onClick: removeVideo }}
+              viewMode={viewMode}
+              gridSize={gridSize}
+              reorderable
+              onReorder={reorder}
             />
           </>
         )}
