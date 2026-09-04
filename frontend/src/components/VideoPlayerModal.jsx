@@ -17,6 +17,7 @@ export default function VideoPlayerModal() {
   const seekRef = useRef(null)
   const pulseTimeoutRef = useRef(null)
   const playlistBtnRef = useRef(null)
+  const fullscreenWrapRef = useRef(null)
 
   const [isPlaying, setIsPlaying] = useState(false)
   const [currentTime, setCurrentTime] = useState(0)
@@ -35,6 +36,9 @@ export default function VideoPlayerModal() {
   const [showPlaylistPopover, setShowPlaylistPopover] = useState(false)
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false)
   const [saveStatus, setSaveStatus] = useState('')
+  const [isFullscreenActive, setIsFullscreenActive] = useState(false)
+  const [controlsVisible, setControlsVisible] = useState(true)
+  const hideControlsTimeoutRef = useRef(null)
 
   useEffect(() => {
     api.get('/videos/creators').then(setAllCreators).catch(() => {})
@@ -140,11 +144,34 @@ export default function VideoPlayerModal() {
   }
 
   const toggleFullScreen = () => {
-    const el = videoRef.current
+    const el = fullscreenWrapRef.current
     if (!el) return
     if (!document.fullscreenElement) el.requestFullscreen?.()
     else document.exitFullscreen?.()
   }
+
+  const resetControlsTimer = useCallback(() => {
+    setControlsVisible(true)
+    clearTimeout(hideControlsTimeoutRef.current)
+    hideControlsTimeoutRef.current = setTimeout(() => setControlsVisible(false), 3000)
+  }, [])
+
+  useEffect(() => {
+    function onFullscreenChange() {
+      const active = document.fullscreenElement === fullscreenWrapRef.current
+      setIsFullscreenActive(active)
+      if (active) resetControlsTimer()
+      else {
+        clearTimeout(hideControlsTimeoutRef.current)
+        setControlsVisible(true)
+      }
+    }
+    document.addEventListener('fullscreenchange', onFullscreenChange)
+    return () => {
+      document.removeEventListener('fullscreenchange', onFullscreenChange)
+      clearTimeout(hideControlsTimeoutRef.current)
+    }
+  }, [resetControlsTimer])
 
   const handleEnded = () => {
     if (index < queue.length - 1) handleGoTo(index + 1)
@@ -234,6 +261,11 @@ export default function VideoPlayerModal() {
         <div className={`player-shell ${theater ? 'theater' : ''}`}>
           <div className="player-layout">
             <div className="player-main-column">
+              <div
+                className="player-fullscreen-wrap"
+                ref={fullscreenWrapRef}
+                onMouseMove={isFullscreenActive ? resetControlsTimer : undefined}
+              >
               <div className="player-video-wrap">
                 <video
                   key={video.id}
@@ -260,7 +292,7 @@ export default function VideoPlayerModal() {
                 <div className={`buffering-indicator ${buffering ? 'show' : ''}`} />
               </div>
 
-              <div className="yt-controls">
+              <div className={`yt-controls ${isFullscreenActive && !controlsVisible ? 'controls-hidden' : ''}`}>
                 <div className="yt-progress-row">
                   <span className="yt-time">{formatClock(currentTime)}</span>
                   <div className="yt-seek-wrap" ref={seekRef} onMouseMove={onSeekMouseMove} onMouseLeave={() => setSeekPreview(null)}>
@@ -288,16 +320,16 @@ export default function VideoPlayerModal() {
                 </div>
                 <div className="yt-actions">
                   <div className="yt-actions-left">
-                    <button className="yt-btn" onClick={playOrPause}>{isPlaying ? '⏸' : '▶'}</button>
-                    <button className="yt-btn" onClick={() => seekBy(-10)}>-10s</button>
-                    <button className="yt-btn" onClick={() => seekBy(10)}>+10s</button>
-                    <button className="yt-btn" disabled={index <= 0} onClick={() => handleGoTo(index - 1)}>Préc</button>
-                    <button className="yt-btn" disabled={index >= queue.length - 1} onClick={() => handleGoTo(index + 1)}>Suiv</button>
-                    <button className="yt-btn" onClick={toggleMute}>{videoRef.current?.muted ? '🔇' : '🔊'}</button>
+                    <button className="yt-btn yt-btn-icon" title={isPlaying ? 'Pause' : 'Lecture'} onClick={playOrPause}>{isPlaying ? '⏸' : '▶'}</button>
+                    <button className="yt-btn yt-btn-icon" title="Reculer de 10s" onClick={() => seekBy(-10)}>⏪</button>
+                    <button className="yt-btn yt-btn-icon" title="Avancer de 10s" onClick={() => seekBy(10)}>⏩</button>
+                    <button className="yt-btn yt-btn-icon" title="Vidéo précédente" disabled={index <= 0} onClick={() => handleGoTo(index - 1)}>⏮</button>
+                    <button className="yt-btn yt-btn-icon" title="Vidéo suivante" disabled={index >= queue.length - 1} onClick={() => handleGoTo(index + 1)}>⏭</button>
+                    <button className="yt-btn yt-btn-icon" title={videoRef.current?.muted ? 'Activer le son' : 'Couper le son'} onClick={toggleMute}>{videoRef.current?.muted ? '🔇' : '🔊'}</button>
                     <input className="yt-range" type="range" min="0" max="1" step="0.01" defaultValue={1} onInput={(e) => setVolume(e.target.value)} />
                   </div>
                   <div className="yt-actions-right">
-                    <select className="yt-select" value={playbackRate} onChange={(e) => changeSpeed(e.target.value)}>
+                    <select className="yt-select" title="Vitesse de lecture" value={playbackRate} onChange={(e) => changeSpeed(e.target.value)}>
                       <option value="0.5">0.5x</option>
                       <option value="0.75">0.75x</option>
                       <option value="1">1x</option>
@@ -305,17 +337,18 @@ export default function VideoPlayerModal() {
                       <option value="1.5">1.5x</option>
                       <option value="2">2x</option>
                     </select>
-                    <button className="yt-btn" onClick={() => setTheater((t) => !t)}>Théâtre</button>
-                    <button className="yt-btn" onClick={toggleFullScreen}>Plein écran</button>
-                    <button className={`yt-btn ${video.favorite ? 'active' : ''}`} onClick={toggleFavorite}>Favori</button>
-                    <button ref={playlistBtnRef} className="yt-btn" onClick={() => setShowPlaylistPopover((s) => !s)}>+ Playlist</button>
+                    <button className="yt-btn yt-btn-icon hide-in-fullscreen" title="Mode théâtre" onClick={() => setTheater((t) => !t)}>▭</button>
+                    <button className={`yt-btn yt-btn-icon ${video.favorite ? 'active' : ''}`} title="Favori" onClick={toggleFavorite}>♥</button>
+                    <button ref={playlistBtnRef} className="yt-btn yt-btn-icon hide-in-fullscreen" title="Ajouter à une playlist" onClick={() => setShowPlaylistPopover((s) => !s)}>➕</button>
                     {showPlaylistPopover && (
                       <AddToPlaylistPopover videoId={video.id} anchorRef={playlistBtnRef} onClose={() => setShowPlaylistPopover(false)} />
                     )}
-                    <button className="yt-btn" onClick={() => setConfirmDeleteOpen(true)}>Supprimer</button>
-                    <button className="yt-btn" onClick={handleClose}>Fermer</button>
+                    <button className="yt-btn yt-btn-icon hide-in-fullscreen" title="Supprimer" onClick={() => setConfirmDeleteOpen(true)}>🗑️</button>
+                    <button className="yt-btn yt-btn-icon" title="Plein écran" onClick={toggleFullScreen}>⛶</button>
+                    <button className="yt-btn yt-btn-icon" title="Fermer" onClick={handleClose}>✕</button>
                   </div>
                 </div>
+              </div>
               </div>
 
               <section className="player-info-panel">

@@ -60,6 +60,44 @@
     min-width: 0;
 }
 
+.player-fullscreen-wrap:fullscreen {
+    position: relative;
+    width: 100vw;
+    height: 100vh;
+    background: #000;
+    display: flex;
+    align-items: center;
+}
+
+.player-fullscreen-wrap:fullscreen .player-video-wrap {
+    width: 100%;
+    height: 100%;
+    max-height: none;
+    aspect-ratio: unset;
+}
+
+.player-fullscreen-wrap:fullscreen .yt-controls {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(0deg, rgba(0, 0, 0, 0.88) 0%, rgba(0, 0, 0, 0.55) 55%, transparent 100%);
+    border-top: none;
+    padding-top: 28px;
+    z-index: 5;
+    opacity: 1;
+    transition: opacity 0.3s ease;
+}
+
+.player-fullscreen-wrap:fullscreen .yt-controls.controls-hidden {
+    opacity: 0;
+    pointer-events: none;
+}
+
+.player-fullscreen-wrap:fullscreen .hide-in-fullscreen {
+    display: none;
+}
+
 .player-video-wrap {
     position: relative;
     background: #000;
@@ -230,6 +268,16 @@
 .yt-btn:hover {
     transform: translateY(-1px);
     background: rgba(37, 99, 235, 0.22);
+}
+
+.yt-btn-icon {
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 15px;
 }
 
 .yt-btn.active {
