@@ -33,3 +33,4 @@ build/
 .vscode/
 /thumbnails/
 /videos/
+/frontend/node_modules/

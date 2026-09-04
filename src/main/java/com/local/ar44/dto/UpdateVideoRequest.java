@@ -6,7 +6,6 @@ import java.util.List;
 public class UpdateVideoRequest {
     private String title;
     private List<Long> creatorIds;
-    private List<String> tags;
     private Integer sourceIndex;
     private List<String> creatorNames;
 
@@ -31,14 +30,6 @@ public class UpdateVideoRequest {
 
     public void setCreatorIds(List<Long> creatorIds) {
         this.creatorIds = creatorIds;
-    }
-
-    public List<String> getTags() {
-        return tags;
-    }
-
-    public void setTags(List<String> tags) {
-        this.tags = tags;
     }
 
     public Integer getSourceIndex() {

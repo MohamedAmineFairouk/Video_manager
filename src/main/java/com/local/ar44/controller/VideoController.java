@@ -3,15 +3,13 @@ package com.local.ar44.controller;
 import com.local.ar44.dto.AppConfig;
 import com.local.ar44.dto.UpdateVideoRequest;
 import com.local.ar44.dto.Creator;
-import com.local.ar44.dto.Tag;
-import com.local.ar44.dto.TagStats;
 import com.local.ar44.dto.Video;
 import com.local.ar44.dto.VideoResponse;
 import com.local.ar44.repo.AppConfigRepository;
-import com.local.ar44.repo.TagRepository;
 import com.local.ar44.repo.VideoRepository;
 import com.local.ar44.service.StatsService;
 import com.local.ar44.service.ThumbnailStorageService;
+import com.local.ar44.service.VideoResponseMapper;
 import jakarta.servlet.http.HttpSession;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -34,29 +32,29 @@ import java.util.stream.Collectors;
 @RestController
 @RequestMapping("/api/videos")
 public class VideoController {
-        @Value("${app.videos.dir}")
-        private String videosDir;
+    @Value("${app.videos.dir}")
+    private String videosDir;
     private static final Logger log = LoggerFactory.getLogger(VideoController.class);
 
     private final VideoRepository videoRepository;
     private final AppConfigRepository appConfigRepository;
-    private final TagRepository tagRepository;
-        private final com.local.ar44.service.CreatorService creatorService;
+    private final com.local.ar44.service.CreatorService creatorService;
     private final StatsService statsService;
     private final ThumbnailStorageService thumbnailStorageService;
+    private final VideoResponseMapper videoResponseMapper;
 
     public VideoController(VideoRepository videoRepository,
                            AppConfigRepository appConfigRepository,
-                           TagRepository tagRepository,
                            StatsService statsService,
                            ThumbnailStorageService thumbnailStorageService,
-                           com.local.ar44.service.CreatorService creatorService) {
+                           com.local.ar44.service.CreatorService creatorService,
+                           VideoResponseMapper videoResponseMapper) {
         this.videoRepository = videoRepository;
         this.appConfigRepository = appConfigRepository;
-        this.tagRepository = tagRepository;
         this.statsService = statsService;
         this.thumbnailStorageService = thumbnailStorageService;
         this.creatorService = creatorService;
+        this.videoResponseMapper = videoResponseMapper;
     }
 
     // ========================
@@ -77,49 +75,6 @@ public class VideoController {
         return host;
     }
 
-
-    private VideoResponse toResponse(Video video, String host) {
-
-        String fileName = video.getFileName();
-
-        // 🔥 fallback automatique
-        if (fileName == null || fileName.isEmpty()) {
-            fileName = video.getTitle();
-        }
-
-        VideoResponse response = new VideoResponse();
-        response.setId(video.getId());
-        response.setTitle(video.getTitle());
-        response.setFileName(fileName);
-        response.setDurationMs(video.getDurationMs());
-        response.setCreators(
-            video.getCreators() == null ? List.of() :
-            video.getCreators().stream()
-                .map(Creator::getName)
-                .sorted()
-                .toList()
-        );
-        response.setTags(video.getTags().stream()
-                .map(Tag::getName)
-                .sorted()
-                .toList());
-        response.setFavorite(video.getFavorite());
-        response.setSourceIndex(video.getSourceIndex());
-        // On retourne l'URL du endpoint local pour le player
-        response.setUrl("/api/videos/file?fileName=" + java.net.URLEncoder.encode(fileName, java.nio.charset.StandardCharsets.UTF_8));
-            /**
-             * Sert le fichier vidéo localement (streaming)
-             */
-
-        response.setFavoriteOrder(video.getFavoriteOrder());
-        
-        // 🔗 Log pour les URLs des thumbnails
-        String thumbUrl = "/api/videos/thumbnail?id=" + video.getId();
-        log.debug("[THUMBNAIL-URL] ID: {}, FileName: {}, ThumbURL: {}", 
-                video.getId(), fileName, thumbUrl);
-
-        return response;
-    }
     @GetMapping("/file")
     public ResponseEntity<Resource> getVideoFile(@RequestParam String fileName) {
         Path videoPath = Paths.get(videosDir, fileName).toAbsolutePath();
@@ -138,65 +93,31 @@ public class VideoController {
             return ResponseEntity.internalServerError().build();
         }
     }
-    private void assignTagsToVideo(Video video, String tagString) {
-        video.getTags().clear();
-        if (tagString != null && !tagString.isEmpty()) {
-            String[] tagNames = tagString.split(",");
-            for (String tagName : tagNames) {
-                String trimmed = tagName.trim();
-                if (!trimmed.isEmpty()) {
-                    video.getTags().add(findOrCreateTag(trimmed));
-                }
-            }
-        }
-    }
-
-    private void assignTagsToVideo(Video video, List<String> tags) {
-        video.getTags().clear();
-        if (tags == null) {
-            return;
-        }
-        for (String name : tags) {
-            if (name == null) continue;
-            String trimmed = name.trim();
-            if (trimmed.isEmpty()) continue;
-            video.getTags().add(findOrCreateTag(trimmed));
-        }
-    }
-
-    private Tag findOrCreateTag(String tagName) {
-        return tagRepository.findByNameIgnoreCase(tagName)
-                .orElseGet(() -> tagRepository.save(new Tag(tagName)));
-    }
 
     // ========================
     // 🎬 GET ALL VIDEOS
     // ========================
     @GetMapping
     public List<VideoResponse> getVideos(HttpSession session) {
-        String host = resolveHost(session);
-
+        resolveHost(session);
         return videoRepository.findAll()
                 .stream()
-                .map(v -> toResponse(v, host))
+                .map(videoResponseMapper::toResponse)
                 .toList();
     }
 
-    // ========================
-    // 🔍 FILTERS
-    // ========================
     // ========================
     // 🕒 RECENTLY WATCHED
     // ========================
     @GetMapping("/recently-watched")
     public List<VideoResponse> getRecentlyWatched(HttpSession session) {
-        String host = resolveHost(session);
+        resolveHost(session);
         return videoRepository.findAll()
                 .stream()
                 .filter(video -> video.getLastWatchedAt() != null)
                 .sorted(Comparator.comparing(Video::getLastWatchedAt).reversed())
                 .limit(20)
-                .map(v -> toResponse(v, host))
+                .map(videoResponseMapper::toResponse)
                 .toList();
     }
 
@@ -206,21 +127,12 @@ public class VideoController {
         return List.of();
     }
 
-    @GetMapping("/by-tag")
-    public List<VideoResponse> getByTag(@RequestParam String tag, HttpSession session) {
-        String host = resolveHost(session);
-        return tagRepository.findVideosByTagName(tag)
-                .stream()
-                .map(v -> toResponse(v, host))
-                .toList();
-    }
-
     @GetMapping("/search")
     public List<VideoResponse> search(@RequestParam String q, HttpSession session) {
-        String host = resolveHost(session);
+        resolveHost(session);
         return videoRepository.findByTitleContainingIgnoreCase(q)
                 .stream()
-                .map(v -> toResponse(v, host))
+                .map(videoResponseMapper::toResponse)
                 .toList();
     }
 
@@ -230,7 +142,6 @@ public class VideoController {
 
     @GetMapping("/creators")
     public List<String> getCreators() {
-        // Retourne la liste des noms de tous les créateurs (ManyToMany)
         return creatorService.findAll().stream()
                 .map(Creator::getName)
                 .filter(n -> n != null && !n.isBlank())
@@ -252,96 +163,6 @@ public class VideoController {
         return ResponseEntity.ok(cleaned);
     }
 
-    @GetMapping("/tags")
-    public List<String> getTags() {
-        return tagRepository.findDistinctTagNames();
-    }
-
-    @GetMapping("/tags/stats")
-    public List<TagStats> getTagsStats() {
-        return videoRepository.findAll().stream()
-                .flatMap(v -> v.getTags().stream())
-                .collect(Collectors.groupingBy(Tag::getName, Collectors.counting()))
-                .entrySet()
-                .stream()
-                .map(e -> new TagStats(e.getKey(), e.getValue()))
-                .toList();
-    }
-
-    @PostMapping("/tags")
-    public ResponseEntity<String> addTag(@RequestParam String name) {
-        String cleaned = name == null ? "" : name.trim();
-        if (cleaned.isEmpty()) {
-            return ResponseEntity.badRequest().body("Nom du tag requis");
-        }
-
-        Optional<Tag> existing = tagRepository.findByNameIgnoreCase(cleaned);
-        if (existing.isPresent()) {
-            return ResponseEntity.badRequest().body("Ce tag existe déjà");
-        }
-
-        tagRepository.save(new Tag(cleaned));
-        return ResponseEntity.ok("Tag ajouté");
-    }
-
-    @PutMapping("/tags")
-    public ResponseEntity<String> renameTag(@RequestParam String oldName, @RequestParam String newName) {
-        String oldCleaned = oldName == null ? "" : oldName.trim();
-        String newCleaned = newName == null ? "" : newName.trim();
-
-        if (oldCleaned.isEmpty() || newCleaned.isEmpty()) {
-            return ResponseEntity.badRequest().body("Noms invalides");
-        }
-
-        if (oldCleaned.equalsIgnoreCase(newCleaned)) {
-            return ResponseEntity.ok("Aucun changement");
-        }
-
-        Tag source = tagRepository.findByNameIgnoreCase(oldCleaned)
-                .orElseThrow(() -> new RuntimeException("Tag introuvable"));
-
-        Optional<Tag> targetOpt = tagRepository.findByNameIgnoreCase(newCleaned);
-        if (targetOpt.isPresent()) {
-            Tag target = targetOpt.get();
-            List<Video> touched = new ArrayList<>();
-            for (Video video : new ArrayList<>(source.getVideos())) {
-                video.getTags().remove(source);
-                video.getTags().add(target);
-                touched.add(video);
-            }
-            videoRepository.saveAll(touched);
-            tagRepository.delete(source);
-            return ResponseEntity.ok("Tags fusionnés");
-        }
-
-        source.setName(newCleaned);
-        tagRepository.save(source);
-        return ResponseEntity.ok("Tag renommé");
-    }
-
-    @DeleteMapping("/tags")
-    public ResponseEntity<String> deleteTag(@RequestParam String name) {
-        String cleaned = name == null ? "" : name.trim();
-        if (cleaned.isEmpty()) {
-            return ResponseEntity.badRequest().body("Nom du tag requis");
-        }
-
-        Tag tag = tagRepository.findByNameIgnoreCase(cleaned)
-                .orElseThrow(() -> new RuntimeException("Tag introuvable"));
-
-        List<Video> touched = new ArrayList<>();
-        for (Video video : new ArrayList<>(tag.getVideos())) {
-            video.getTags().remove(tag);
-            touched.add(video);
-        }
-        if (!touched.isEmpty()) {
-            videoRepository.saveAll(touched);
-        }
-
-        tagRepository.delete(tag);
-        return ResponseEntity.ok("Tag supprimé");
-    }
-
     // ========================
     // ➕ CREATE VIDEO
     // ========================
@@ -350,15 +171,11 @@ public class VideoController {
             @RequestParam String fileName,
             @RequestParam(required = false) String title,
             @RequestParam(required = false) String creator,
-            @RequestParam(required = false) String tag,
             @RequestParam(required = false) Long duration
     ) {
-
         Video v = new Video();
         v.setFileName(fileName);
         v.setTitle(title != null ? title : fileName);
-        // Suppression de setCreator obsolète
-        assignTagsToVideo(v, tag);
         v.setDurationMs(duration);
 
         return videoRepository.save(v);
@@ -368,26 +185,24 @@ public class VideoController {
     // ✏️ UPDATE VIDEO
     // ========================
     @GetMapping("/update")
-        public VideoResponse updateVideo(
+    public VideoResponse updateVideo(
             @RequestParam Long id,
             @RequestParam(required = false) String title,
             @RequestParam(required = false) String creator,
-            @RequestParam(required = false) String tag,
             @RequestParam(required = false) Integer sourceIndex,
             HttpSession session
     ) {
         Video v = videoRepository.findById(id).orElseThrow();
 
         if (title != null) v.setTitle(title);
-        // Suppression de setCreator obsolète
-        if (tag != null) assignTagsToVideo(v, tag);
         if (sourceIndex != null) {
             int requested = Math.max(0, Math.min(5, sourceIndex));
             v.setSourceIndex(requested);
         }
 
         Video saved = videoRepository.save(v);
-        return toResponse(saved, resolveHost(session));
+        resolveHost(session);
+        return videoResponseMapper.toResponse(saved);
     }
 
     // New RESTful update using JSON body
@@ -412,14 +227,14 @@ public class VideoController {
             }
             v.setCreators(creators);
         }
-        if (req.getTags() != null) assignTagsToVideo(v, req.getTags());
         if (req.getSourceIndex() != null) {
             int requested = Math.max(0, Math.min(5, req.getSourceIndex()));
             v.setSourceIndex(requested);
         }
 
         Video saved = videoRepository.save(v);
-        return toResponse(saved, resolveHost(session));
+        resolveHost(session);
+        return videoResponseMapper.toResponse(saved);
     }
 
     // ========================
@@ -473,25 +288,19 @@ public class VideoController {
         return "Vidéo supprimée : " + id;
     }
 
-    @GetMapping("/tag/set")
-    public String setTag(@RequestParam Long id, @RequestParam String tag) {
-        Video v = videoRepository.findById(id).orElseThrow();
-        assignTagsToVideo(v, tag);
-        videoRepository.save(v);
-        return "Tags mis à jour";
-    }
     @GetMapping("/source-index/increase")
     public String increaseSourceIndex(@RequestParam Long id) {
         Video v = videoRepository.findById(id).orElseThrow();
 
         Integer current = v.getSourceIndex();
         if (current == null) current = 0;
-        if(current < 5) {
+        if (current < 5) {
             v.setSourceIndex(current + 1);
             videoRepository.save(v);
         }
         return "SourceIndex augmenté";
     }
+
     @GetMapping("/source-index/set")
     public String setSourceIndex(@RequestParam Long id, @RequestParam Integer sourceIndex) {
         Video v = videoRepository.findById(id).orElseThrow();
@@ -587,11 +396,10 @@ public class VideoController {
 
     @GetMapping("/favorites")
     public List<VideoResponse> getFavorites(HttpSession session) {
-        String host = resolveHost(session);
-
+        resolveHost(session);
         return videoRepository.findFavoritesOrdered()
                 .stream()
-                .map(v -> toResponse(v, host))
+                .map(videoResponseMapper::toResponse)
                 .toList();
     }
 
@@ -635,7 +443,6 @@ public class VideoController {
             @RequestParam String title,
             @RequestParam String fileName,
             @RequestParam String creators,
-            @RequestParam(required = false) String tags,
             @RequestParam(required = false) Integer sourceIndex,
             @RequestParam("thumbnail") MultipartFile thumbnailFile,
             @RequestParam(value = "videoFile", required = false) MultipartFile videoFile
@@ -657,18 +464,6 @@ public class VideoController {
                         creatorSet.add(creatorService.findOrCreateByName(name));
                     }
                     video.setCreators(creatorSet);
-                }
-            }
-            // Tags (optionnel)
-            if (tags != null && !tags.isBlank()) {
-                List<String> tagNames = Arrays.stream(tags.split(","))
-                        .map(String::trim).filter(s -> !s.isEmpty()).toList();
-                if (!tagNames.isEmpty()) {
-                    Set<Tag> tagSet = new HashSet<>();
-                    for (String name : tagNames) {
-                        tagSet.add(findOrCreateTag(name));
-                    }
-                    video.setTags(tagSet);
                 }
             }
             // Sauvegarde de la vidéo en base (pour avoir l'ID)
