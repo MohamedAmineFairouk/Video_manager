@@ -34,3 +34,6 @@ build/
 /thumbnails/
 /videos/
 /frontend/node_modules/
+/new_videos/
+/_backup_originals/
+/ar44.jar
