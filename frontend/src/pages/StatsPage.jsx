@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react'
 import Sidebar from '../components/Sidebar'
+import BarChart from '../components/BarChart'
+import ConfirmModal from '../components/ConfirmModal'
 import { api } from '../api/client'
 import { formatClock } from '../utils'
 
@@ -12,89 +14,225 @@ function StatCard({ label, value }) {
   )
 }
 
+function sum(data) {
+  return data.reduce((acc, d) => acc + (Number(d.value) || 0), 0)
+}
+
 export default function StatsPage() {
-  const [data, setData] = useState(null)
+  const [stats, setStats] = useState(null)
+  const [resetOpen, setResetOpen] = useState(false)
+  const [resetPassword, setResetPassword] = useState('')
+  const [resetStatus, setResetStatus] = useState('')
+  const [resetting, setResetting] = useState(false)
 
-  useEffect(() => {
-    api.get('/stats/overview').then(setData).catch(() => {})
-  }, [])
+  const [creators, setCreators] = useState([])
+  const [creatorsLoading, setCreatorsLoading] = useState(true)
+  const [tags, setTags] = useState([])
+  const [tagsLoading, setTagsLoading] = useState(true)
+  const [deleteTarget, setDeleteTarget] = useState(null) // { type: 'creator'|'tag', id, name }
 
-  if (!data) {
-    return (
-      <div className="app">
-        <Sidebar />
-        <main className="content"><h1 className="page-title">Statistiques</h1><div className="status">Chargement...</div></main>
-      </div>
-    )
+  const reload = () => api.get('/stats/overview').then(setStats).catch(() => {})
+  const loadCreators = () => {
+    setCreatorsLoading(true)
+    api.get('/videos/creators/detailed').then(setCreators).finally(() => setCreatorsLoading(false))
+  }
+  const loadTags = () => {
+    setTagsLoading(true)
+    api.get('/videos/tags/detailed').then(setTags).finally(() => setTagsLoading(false))
+  }
+
+  useEffect(() => { reload(); loadCreators(); loadTags() }, [])
+
+  const confirmReset = async () => {
+    if (!resetPassword) return
+    setResetting(true)
+    setResetStatus('')
+    try {
+      await api.post('/stats/reset', { password: resetPassword })
+      setResetStatus('Statistiques réinitialisées ✔')
+      setResetPassword('')
+      setResetOpen(false)
+      reload()
+    } catch (err) {
+      setResetStatus(err.message || 'Mot de passe incorrect')
+    } finally {
+      setResetting(false)
+    }
+  }
+
+  const confirmDeleteTarget = async () => {
+    if (!deleteTarget) return
+    if (deleteTarget.type === 'creator') {
+      await api.del(`/videos/creators/${deleteTarget.id}`)
+      setCreators((prev) => prev.filter((c) => c.id !== deleteTarget.id))
+    } else {
+      await api.del(`/videos/tags/${deleteTarget.id}`)
+      setTags((prev) => prev.filter((t) => t.id !== deleteTarget.id))
+    }
+    setDeleteTarget(null)
   }
 
   return (
     <div className="app">
       <Sidebar />
       <main className="content">
-        <h1 className="page-title">Statistiques</h1>
+        <div className="stats-page-header">
+          <h1 className="page-title" style={{ margin: 0 }}>Statistiques</h1>
+          <button className="btn-secondary danger-button" style={{ width: 'auto' }} onClick={() => setResetOpen((o) => !o)}>
+            Réinitialiser les compteurs
+          </button>
+        </div>
+        <p className="page-subtitle">Ton activité et tes habitudes de visionnage</p>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12, marginBottom: 20 }}>
-          <StatCard label="Accès total" value={data.totalAppAccesses ?? 0} />
-          <StatCard label="Accès aujourd'hui" value={data.todayAppAccesses ?? 0} />
-          <StatCard label="Vues total" value={data.totalVideoViews ?? 0} />
-          <StatCard label="Vues aujourd'hui" value={data.todayVideoViews ?? 0} />
-          <StatCard label="Durée totale regardée" value={formatClock(data.totalWatchSeconds ?? 0)} />
-          <StatCard label="Durée moyenne / vue" value={formatClock(data.averageWatchSeconds ?? 0)} />
+        {resetOpen && (
+          <div className="host-box" style={{ maxWidth: 420, marginBottom: 20, borderColor: 'rgba(239,68,68,0.4)' }}>
+            <p className="muted-note" style={{ marginTop: 0 }}>
+              Cette action supprime définitivement l'historique des vues et des accès. Confirme avec ton mot de passe.
+            </p>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <input
+                className="host-input"
+                type="password"
+                placeholder="Mot de passe"
+                value={resetPassword}
+                onChange={(e) => setResetPassword(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') confirmReset() }}
+                autoFocus
+              />
+              <button
+                className="btn"
+                style={{ width: 'auto', margin: 0, background: 'linear-gradient(135deg, #ef4444, #b91c1c)' }}
+                disabled={!resetPassword || resetting}
+                onClick={confirmReset}
+              >Confirmer</button>
+            </div>
+            {resetStatus && (
+              <div className="status" style={{ color: resetStatus.includes('✔') ? '#4ade80' : '#f87171' }}>{resetStatus}</div>
+            )}
+          </div>
+        )}
+
+        {!stats && <div className="status">Chargement...</div>}
+
+        {stats && (
+          <>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12, marginBottom: 28 }}>
+              <StatCard label="Temps total regardé" value={formatClock(stats.totalWatchSeconds ?? 0)} />
+              <StatCard label="Durée moyenne / vue" value={formatClock(stats.averageWatchSeconds ?? 0)} />
+              <StatCard label="Vues aujourd'hui" value={stats.todayVideoViews ?? 0} />
+              <StatCard label="Connexions aujourd'hui" value={stats.todayAppAccesses ?? 0} />
+            </div>
+
+            <div className="stats-section">
+              <h2 className="stats-section-title">🕒 Quand je me connecte (par heure, historique complet)</h2>
+              <div className="stats-chart-card">
+                <BarChart data={stats.connectionsByHour} color="#6366f1" height={130} />
+              </div>
+            </div>
+
+            <div className="stats-section">
+              <h2 className="stats-section-title">🔌 Connexions</h2>
+              <div className="stats-grid">
+                <div className="stats-chart-card">
+                  <div className="stats-chart-card-header">
+                    <span className="stats-chart-card-title">Par jour (30j)</span>
+                    <span className="stats-chart-card-total">{sum(stats.connectionsByDay ?? [])} total</span>
+                  </div>
+                  <BarChart data={stats.connectionsByDay} color="#38bdf8" />
+                </div>
+                <div className="stats-chart-card">
+                  <div className="stats-chart-card-header">
+                    <span className="stats-chart-card-title">Par semaine (12s)</span>
+                    <span className="stats-chart-card-total">{sum(stats.connectionsByWeek ?? [])} total</span>
+                  </div>
+                  <BarChart data={stats.connectionsByWeek} color="#38bdf8" />
+                </div>
+                <div className="stats-chart-card">
+                  <div className="stats-chart-card-header">
+                    <span className="stats-chart-card-title">Par mois (12m)</span>
+                    <span className="stats-chart-card-total">{sum(stats.connectionsByMonth ?? [])} total</span>
+                  </div>
+                  <BarChart data={stats.connectionsByMonth} color="#38bdf8" />
+                </div>
+              </div>
+            </div>
+
+            <div className="stats-section">
+              <h2 className="stats-section-title">▶️ Minutes regardées</h2>
+              <div className="stats-grid">
+                <div className="stats-chart-card">
+                  <div className="stats-chart-card-header">
+                    <span className="stats-chart-card-title">Par jour (30j)</span>
+                    <span className="stats-chart-card-total">{sum(stats.watchMinutesByDay ?? [])} min</span>
+                  </div>
+                  <BarChart data={stats.watchMinutesByDay} color="#22d493" valueSuffix=" min" />
+                </div>
+                <div className="stats-chart-card">
+                  <div className="stats-chart-card-header">
+                    <span className="stats-chart-card-title">Par semaine (12s)</span>
+                    <span className="stats-chart-card-total">{sum(stats.watchMinutesByWeek ?? [])} min</span>
+                  </div>
+                  <BarChart data={stats.watchMinutesByWeek} color="#22d493" valueSuffix=" min" />
+                </div>
+              </div>
+            </div>
+
+            {Array.isArray(stats.topVideosByWatchTime) && stats.topVideosByWatchTime.length > 0 && (
+              <div className="stats-section">
+                <h2 className="stats-section-title">🏆 Top vidéos (minutes regardées)</h2>
+                <div className="stats-chart-card">
+                  <BarChart data={stats.topVideosByWatchTime} color="#facc15" valueSuffix=" min" height={160} />
+                </div>
+              </div>
+            )}
+          </>
+        )}
+
+        <div className="stats-section">
+          <h2 className="stats-section-title">⚙ Créateurs</h2>
+          <p className="muted-note" style={{ marginBottom: 12 }}>
+            Supprimer un créateur le retire de toutes les vidéos associées.
+          </p>
+
+          {creatorsLoading && <div className="status">Chargement...</div>}
+          {!creatorsLoading && creators.length === 0 && <div className="empty-state">Aucun créateur pour le moment.</div>}
+
+          <div className="creator-manage-list">
+            {creators.map((c) => (
+              <div key={c.id} className="creator-manage-item">
+                <span>{c.name}</span>
+                <button className="creator-manage-delete" title="Supprimer" onClick={() => setDeleteTarget({ type: 'creator', id: c.id, name: c.name })}>✕</button>
+              </div>
+            ))}
+          </div>
         </div>
 
-        {Array.isArray(data.topVideos) && data.topVideos.length > 0 && (
-          <>
-            <p className="section-title">Top vidéos</p>
-            <div style={{ overflowX: 'auto', marginBottom: 20 }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-                <thead>
-                  <tr style={{ color: '#93c5fd', textAlign: 'left' }}>
-                    <th style={{ padding: 8 }}>Titre</th>
-                    <th style={{ padding: 8 }}>Vues</th>
-                    <th style={{ padding: 8 }}>Temps regardé</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {data.topVideos.map((v) => (
-                    <tr key={v.videoId} style={{ borderTop: '1px solid rgba(148,163,184,0.15)' }}>
-                      <td style={{ padding: 8 }}>{v.title}</td>
-                      <td style={{ padding: 8 }}>{v.views}</td>
-                      <td style={{ padding: 8 }}>{formatClock(v.watchSeconds ?? 0)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </>
-        )}
+        <div className="stats-section">
+          <h2 className="stats-section-title">🏷 Tags</h2>
+          <p className="muted-note" style={{ marginBottom: 12 }}>
+            Supprimer un tag le retire de toutes les vidéos associées.
+          </p>
 
-        {Array.isArray(data.recentAccesses) && data.recentAccesses.length > 0 && (
-          <>
-            <p className="section-title">Accès récents</p>
-            <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-                <thead>
-                  <tr style={{ color: '#93c5fd', textAlign: 'left' }}>
-                    <th style={{ padding: 8 }}>Page</th>
-                    <th style={{ padding: 8 }}>Utilisateur</th>
-                    <th style={{ padding: 8 }}>Date</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {data.recentAccesses.map((a, i) => (
-                    <tr key={i} style={{ borderTop: '1px solid rgba(148,163,184,0.15)' }}>
-                      <td style={{ padding: 8 }}>{a.page}</td>
-                      <td style={{ padding: 8 }}>{a.username || '—'}</td>
-                      <td style={{ padding: 8 }}>{a.at ? new Date(a.at).toLocaleString('fr-FR') : ''}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </>
-        )}
+          {tagsLoading && <div className="status">Chargement...</div>}
+          {!tagsLoading && tags.length === 0 && <div className="empty-state">Aucun tag pour le moment.</div>}
+
+          <div className="creator-manage-list">
+            {tags.map((t) => (
+              <div key={t.id} className="creator-manage-item">
+                <span>{t.name}</span>
+                <button className="creator-manage-delete" title="Supprimer" onClick={() => setDeleteTarget({ type: 'tag', id: t.id, name: t.name })}>✕</button>
+              </div>
+            ))}
+          </div>
+        </div>
       </main>
+
+      <ConfirmModal
+        open={!!deleteTarget}
+        text={`Supprimer ${deleteTarget?.type === 'tag' ? 'le tag' : 'le créateur'} "${deleteTarget?.name}" ? Il sera retiré de toutes les vidéos.`}
+        onConfirm={confirmDeleteTarget}
+        onCancel={() => setDeleteTarget(null)}
+      />
     </div>
   )
 }

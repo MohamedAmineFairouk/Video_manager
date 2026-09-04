@@ -1,12 +1,14 @@
 import { useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { api } from '../api/client'
 
-export default function AddToPlaylistPopover({ videoId, onClose }) {
+export default function AddToPlaylistPopover({ videoId, anchorRef, onClose }) {
   const [playlists, setPlaylists] = useState([])
   const [memberIds, setMemberIds] = useState(new Set())
   const [newName, setNewName] = useState('')
   const [loading, setLoading] = useState(true)
-  const ref = useRef(null)
+  const [pos, setPos] = useState(null)
+  const popoverRef = useRef(null)
 
   useEffect(() => {
     let cancelled = false
@@ -22,13 +24,33 @@ export default function AddToPlaylistPopover({ videoId, onClose }) {
     return () => { cancelled = true }
   }, [videoId])
 
+  const updatePosition = () => {
+    const el = anchorRef?.current
+    if (!el) return
+    const rect = el.getBoundingClientRect()
+    setPos({ top: rect.bottom + 8, left: rect.left, minWidth: Math.max(rect.width, 280) })
+  }
+
+  useEffect(() => {
+    updatePosition()
+    window.addEventListener('scroll', updatePosition, true)
+    window.addEventListener('resize', updatePosition)
+    return () => {
+      window.removeEventListener('scroll', updatePosition, true)
+      window.removeEventListener('resize', updatePosition)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   useEffect(() => {
     function handleClick(e) {
-      if (ref.current && !ref.current.contains(e.target)) onClose()
+      if (popoverRef.current?.contains(e.target)) return
+      if (anchorRef?.current?.contains(e.target)) return
+      onClose()
     }
     document.addEventListener('mousedown', handleClick)
     return () => document.removeEventListener('mousedown', handleClick)
-  }, [onClose])
+  }, [onClose, anchorRef])
 
   const toggle = async (playlist) => {
     const isMember = memberIds.has(playlist.id)
@@ -54,8 +76,14 @@ export default function AddToPlaylistPopover({ videoId, onClose }) {
     setNewName('')
   }
 
-  return (
-    <div className="playlist-popover" ref={ref}>
+  if (!pos) return null
+
+  return createPortal(
+    <div
+      className="playlist-popover"
+      ref={popoverRef}
+      style={{ top: pos.top, left: pos.left, minWidth: pos.minWidth }}
+    >
       {loading && <div className="muted-note">Chargement...</div>}
       {!loading && playlists.length === 0 && <div className="muted-note">Aucune playlist. Crée la première ci-dessous.</div>}
       {!loading && playlists.map((p) => (
@@ -74,6 +102,7 @@ export default function AddToPlaylistPopover({ videoId, onClose }) {
         />
         <button type="button" className="btn" style={{ width: 'auto', margin: 0, padding: '6px 10px' }} onClick={createAndAdd}>+</button>
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }

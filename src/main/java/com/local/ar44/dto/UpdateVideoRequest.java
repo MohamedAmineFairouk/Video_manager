@@ -8,6 +8,15 @@ public class UpdateVideoRequest {
     private List<Long> creatorIds;
     private Integer sourceIndex;
     private List<String> creatorNames;
+    private List<String> tags;
+
+    public List<String> getTags() {
+        return tags;
+    }
+
+    public void setTags(List<String> tags) {
+        this.tags = tags;
+    }
 
 
     public List<String> getCreatorNames() {

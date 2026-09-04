@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react'
 import Sidebar from '../components/Sidebar'
 import VideoGrid from '../components/VideoGrid'
 import ViewToggle from '../components/ViewToggle'
-import AddVideoModal from '../components/AddVideoModal'
 import ConfirmModal from '../components/ConfirmModal'
 import { api } from '../api/client'
 import { useRouter } from '../router'
@@ -15,7 +14,6 @@ export default function PlaylistDetailPage({ playlistId }) {
   const [renaming, setRenaming] = useState(false)
   const [nameDraft, setNameDraft] = useState('')
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false)
-  const [addModalOpen, setAddModalOpen] = useState(false)
   const { navigate } = useRouter()
   const { openPlayer } = usePlayer()
   const { viewMode, gridSize } = useViewPreferences()
@@ -73,7 +71,7 @@ export default function PlaylistDetailPage({ playlistId }) {
 
   return (
     <div className="app">
-      <Sidebar onAddVideo={() => setAddModalOpen(true)} />
+      <Sidebar />
       <main className="content">
         <button className="btn-secondary" style={{ width: 'auto', marginBottom: 14 }} onClick={() => navigate('/playlists')}>← Playlists</button>
 
@@ -128,7 +126,6 @@ export default function PlaylistDetailPage({ playlistId }) {
         onConfirm={deletePlaylist}
         onCancel={() => setConfirmDeleteOpen(false)}
       />
-      <AddVideoModal open={addModalOpen} onClose={() => setAddModalOpen(false)} onAdded={load} />
     </div>
   )
 }

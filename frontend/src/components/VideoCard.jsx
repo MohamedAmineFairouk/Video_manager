@@ -18,6 +18,33 @@ function CreatorBadges({ creators }) {
     : <span className="creator-badge" style={{ background: '#64748b' }}>Unknown</span>
 }
 
+function TagBadges({ tags, max = 2 }) {
+  if (!tags?.length) return null
+  const shown = tags.slice(0, max)
+  const rest = tags.length - shown.length
+  return (
+    <>
+      {shown.map((t) => <span key={t} className="tag-badge">{t}</span>)}
+      {rest > 0 && <span className="tag-badge">+{rest}</span>}
+    </>
+  )
+}
+
+function TagsText({ tags }) {
+  if (!tags?.length) return null
+  return <span className="tag-text">{tags.join(', ')}</span>
+}
+
+function ViewCount({ count }) {
+  return <span className="view-count" title="Nombre de vues">👁 {count ?? 0}</span>
+}
+
+function DurationText({ durationMs }) {
+  const text = formatDuration(durationMs)
+  if (!text) return null
+  return <span className="view-count" title="Durée">⏱ {text}</span>
+}
+
 function DragHandle() {
   return <span className="drag-handle" title="Glisser pour réordonner">⠿</span>
 }
@@ -61,7 +88,10 @@ export default function VideoCard({
           <div className="video-list-title" title={video.title}>{video.title}</div>
           <div className="video-list-meta">
             <CreatorBadges creators={video.creators} />
+            <TagBadges tags={video.tags} max={4} />
             <LevelStars level={video.sourceIndex} />
+            <DurationText durationMs={video.durationMs} />
+            <ViewCount count={video.viewCount} />
           </div>
         </div>
         <div className="video-list-actions">
@@ -127,7 +157,9 @@ export default function VideoCard({
         <div className="video-title" title={video.title}>{video.title}</div>
         <div className="video-meta">
           <CreatorBadges creators={video.creators} />
+          <TagsText tags={video.tags} />
           <LevelStars level={video.sourceIndex} />
+          <ViewCount count={video.viewCount} />
         </div>
       </div>
       <div className="video-duration" style={topRightAction ? { top: 32 } : undefined}>{formatDuration(video.durationMs)}</div>

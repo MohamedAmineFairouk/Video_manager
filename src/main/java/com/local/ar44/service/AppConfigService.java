@@ -56,6 +56,14 @@ public class AppConfigService {
         repository.save(config);
     }
 
+    public boolean verifyPassword(String password) {
+        return repository.findAll()
+                .stream()
+                .findFirst()
+                .map(config -> password != null && password.equals(config.getPassword()))
+                .orElse(false);
+    }
+
     public boolean hasCredentials() {
         return repository.findAll()
                 .stream()

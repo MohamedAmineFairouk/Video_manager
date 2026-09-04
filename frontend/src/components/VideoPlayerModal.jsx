@@ -4,6 +4,7 @@ import { api, thumbnailUrl } from '../api/client'
 import { formatDuration, formatClock, levelToFilledStars } from '../utils'
 import AddToPlaylistPopover from './AddToPlaylistPopover'
 import ConfirmModal from './ConfirmModal'
+import EntityPicker from './EntityPicker'
 
 export default function VideoPlayerModal() {
   const { queue, index, isOpen, closePlayer, goTo, applyVideoUpdate, applyVideoDeleted } = usePlayer()
@@ -12,6 +13,7 @@ export default function VideoPlayerModal() {
   const videoRef = useRef(null)
   const seekRef = useRef(null)
   const pulseTimeoutRef = useRef(null)
+  const playlistBtnRef = useRef(null)
 
   const [isPlaying, setIsPlaying] = useState(false)
   const [currentTime, setCurrentTime] = useState(0)
@@ -24,6 +26,8 @@ export default function VideoPlayerModal() {
 
   const [allCreators, setAllCreators] = useState([])
   const [draftCreators, setDraftCreators] = useState([])
+  const [allTags, setAllTags] = useState([])
+  const [draftTags, setDraftTags] = useState([])
   const [draftLevel, setDraftLevel] = useState(1)
   const [showPlaylistPopover, setShowPlaylistPopover] = useState(false)
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false)
@@ -31,11 +35,13 @@ export default function VideoPlayerModal() {
 
   useEffect(() => {
     api.get('/videos/creators').then(setAllCreators).catch(() => {})
+    api.get('/videos/tags').then(setAllTags).catch(() => {})
   }, [])
 
   useEffect(() => {
     if (!video) return
     setDraftCreators(video.creators || [])
+    setDraftTags(video.tags || [])
     setDraftLevel(video.sourceIndex && video.sourceIndex >= 1 && video.sourceIndex <= 5 ? video.sourceIndex : 1)
     setTheater(false)
     setShowPlaylistPopover(false)
@@ -145,10 +151,10 @@ export default function VideoPlayerModal() {
     setDraftCreators((prev) => [...prev, name])
   }
 
-  const createAndAddCreator = async () => {
-    const name = prompt('Nom du créateur :')
-    if (!name || !name.trim()) return
-    const res = await api.post(`/videos/creators?name=${encodeURIComponent(name.trim())}`)
+  const createAndAddCreator = async (name) => {
+    const trimmed = name.trim()
+    if (!trimmed) return
+    const res = await api.post(`/videos/creators?name=${encodeURIComponent(trimmed)}`)
     setAllCreators((prev) => [...prev, res].sort())
     addCreatorByName(res)
   }
@@ -157,9 +163,27 @@ export default function VideoPlayerModal() {
     setDraftCreators((prev) => prev.filter((c) => c !== name))
   }
 
+  const addTagByName = (name) => {
+    if (!name || draftTags.includes(name)) return
+    setDraftTags((prev) => [...prev, name])
+  }
+
+  const createAndAddTag = async (name) => {
+    const trimmed = name.trim()
+    if (!trimmed) return
+    const res = await api.post(`/videos/tags?name=${encodeURIComponent(trimmed)}`)
+    setAllTags((prev) => [...prev, res].sort())
+    addTagByName(res)
+  }
+
+  const removeTag = (name) => {
+    setDraftTags((prev) => prev.filter((t) => t !== name))
+  }
+
   const saveEdits = async () => {
     const updated = await api.put(`/videos/${video.id}`, {
       creatorNames: draftCreators,
+      tags: draftTags,
       sourceIndex: Math.max(0, Math.min(5, draftLevel)),
     })
     applyVideoUpdate(updated)
@@ -265,12 +289,10 @@ export default function VideoPlayerModal() {
                     <button className="yt-btn" onClick={() => setTheater((t) => !t)}>Théâtre</button>
                     <button className="yt-btn" onClick={toggleFullScreen}>Plein écran</button>
                     <button className={`yt-btn ${video.favorite ? 'active' : ''}`} onClick={toggleFavorite}>Favori</button>
-                    <div style={{ position: 'relative' }}>
-                      <button className="yt-btn" onClick={() => setShowPlaylistPopover((s) => !s)}>+ Playlist</button>
-                      {showPlaylistPopover && (
-                        <AddToPlaylistPopover videoId={video.id} onClose={() => setShowPlaylistPopover(false)} />
-                      )}
-                    </div>
+                    <button ref={playlistBtnRef} className="yt-btn" onClick={() => setShowPlaylistPopover((s) => !s)}>+ Playlist</button>
+                    {showPlaylistPopover && (
+                      <AddToPlaylistPopover videoId={video.id} anchorRef={playlistBtnRef} onClose={() => setShowPlaylistPopover(false)} />
+                    )}
                     <button className="yt-btn" onClick={() => setConfirmDeleteOpen(true)}>Supprimer</button>
                     <button className="yt-btn" onClick={handleClose}>Fermer</button>
                   </div>
@@ -278,11 +300,64 @@ export default function VideoPlayerModal() {
               </div>
 
               <section className="player-info-panel">
-                <div className="player-info-header">
-                  <div className="player-info-copy">
-                    <h2>{video.title || 'Lecture vidéo'}</h2>
-                    <p>Créateur: {video.creators?.length ? video.creators.join(', ') : 'Unknown'} • Niveau: {video.sourceIndex ?? 'N/A'}</p>
+                <div className="player-info-row">
+                  <h2 className="player-title-inline" title={video.title}>{video.title || 'Lecture vidéo'}</h2>
+
+                  <div className="player-inline-field">
+                    <label>Créateurs:</label>
+                    {draftCreators.map((name) => (
+                      <span key={name} className="creator-badge selected">
+                        {name}
+                        <span className="remove-badge" onClick={() => removeCreator(name)}>×</span>
+                      </span>
+                    ))}
+                    <EntityPicker
+                      items={allCreators}
+                      excluded={draftCreators}
+                      onSelect={addCreatorByName}
+                      onCreate={createAndAddCreator}
+                      placeholder="Ajouter un créateur..."
+                    />
                   </div>
+
+                  <div className="player-inline-field">
+                    <label>Tags:</label>
+                    {draftTags.map((name) => (
+                      <span key={name} className="tag-badge selected">
+                        {name}
+                        <span className="remove-badge" onClick={() => removeTag(name)}>×</span>
+                      </span>
+                    ))}
+                    <EntityPicker
+                      items={allTags}
+                      excluded={draftTags}
+                      onSelect={addTagByName}
+                      onCreate={createAndAddTag}
+                      placeholder="Ajouter un tag..."
+                    />
+                  </div>
+
+                  <div className="player-inline-field">
+                    <label>Niveau:</label>
+                    <div className="player-level-stars">
+                      {[1, 2, 3, 4, 5].map((i) => {
+                        const levelValue = 6 - i
+                        return (
+                          <span
+                            key={i}
+                            className="star"
+                            style={{ color: i <= filledStars ? '#facc15' : '#334155' }}
+                            title={`${levelValue} étoile(s)`}
+                            onClick={() => setDraftLevel(levelValue)}
+                          >★</span>
+                        )
+                      })}
+                    </div>
+                    <span className="player-level-value">{draftLevel}</span>
+                    <button className="player-save-btn" title="Enregistrer" onClick={saveEdits}>💾</button>
+                    {saveStatus && <span className="muted-note">{saveStatus}</span>}
+                  </div>
+
                   <div className="player-stat-list">
                     <div className="player-stat">
                       <span>Favoris:</span>
@@ -291,51 +366,11 @@ export default function VideoPlayerModal() {
                     <div className="player-stat">
                       <span>{formatDuration(video.durationMs)}</span>
                     </div>
+                    <div className="player-stat">
+                      <span>👁 Vues:</span>
+                      <strong>{video.viewCount ?? 0}</strong>
+                    </div>
                   </div>
-                </div>
-
-                <div className="player-edit-panel">
-                  <label>Créateurs:</label>
-                  {draftCreators.map((name) => (
-                    <span key={name} className="creator-badge selected">
-                      {name}
-                      <span className="remove-badge" onClick={() => removeCreator(name)}>×</span>
-                    </span>
-                  ))}
-                  <select
-                    className="yt-select"
-                    value=""
-                    onChange={(e) => {
-                      if (e.target.value === '__create__') createAndAddCreator()
-                      else if (e.target.value) addCreatorByName(e.target.value)
-                    }}
-                  >
-                    <option value="">+ Ajouter un créateur</option>
-                    <option value="__create__">+ Créer un créateur</option>
-                    {allCreators.filter((c) => !draftCreators.includes(c)).map((c) => (
-                      <option key={c} value={c}>{c}</option>
-                    ))}
-                  </select>
-
-                  <label>Niveau:</label>
-                  <div className="player-level-stars">
-                    {[1, 2, 3, 4, 5].map((i) => {
-                      const levelValue = 6 - i
-                      return (
-                        <span
-                          key={i}
-                          className="star"
-                          style={{ color: i <= filledStars ? '#facc15' : '#334155' }}
-                          title={`${levelValue} étoile(s)`}
-                          onClick={() => setDraftLevel(levelValue)}
-                        >★</span>
-                      )
-                    })}
-                  </div>
-                  <span className="player-level-value">{draftLevel}</span>
-
-                  <button className="player-save-btn" title="Enregistrer" onClick={saveEdits}>💾</button>
-                  {saveStatus && <span className="muted-note">{saveStatus}</span>}
                 </div>
               </section>
             </div>

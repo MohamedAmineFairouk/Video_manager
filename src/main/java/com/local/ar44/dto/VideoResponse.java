@@ -11,9 +11,11 @@ public class VideoResponse {
     private String url;
     private Long durationMs;
     private List<String> creators;
+    private List<String> tags;
     private Integer sourceIndex;
     private Boolean favorite;
     private Integer favoriteOrder; // nouvellement exposé au front-end
+    private Long viewCount;
 
     // getters/setters
 }

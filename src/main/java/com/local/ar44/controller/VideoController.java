@@ -3,9 +3,11 @@ package com.local.ar44.controller;
 import com.local.ar44.dto.AppConfig;
 import com.local.ar44.dto.UpdateVideoRequest;
 import com.local.ar44.dto.Creator;
+import com.local.ar44.dto.Tag;
 import com.local.ar44.dto.Video;
 import com.local.ar44.dto.VideoResponse;
 import com.local.ar44.repo.AppConfigRepository;
+import com.local.ar44.repo.TagRepository;
 import com.local.ar44.repo.VideoRepository;
 import com.local.ar44.service.StatsService;
 import com.local.ar44.service.ThumbnailStorageService;
@@ -17,6 +19,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.UrlResource;
 import org.springframework.http.ResponseEntity;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -38,23 +41,45 @@ public class VideoController {
 
     private final VideoRepository videoRepository;
     private final AppConfigRepository appConfigRepository;
+    private final TagRepository tagRepository;
     private final com.local.ar44.service.CreatorService creatorService;
     private final StatsService statsService;
     private final ThumbnailStorageService thumbnailStorageService;
     private final VideoResponseMapper videoResponseMapper;
+    private final com.local.ar44.service.VideoImportService videoImportService;
 
     public VideoController(VideoRepository videoRepository,
                            AppConfigRepository appConfigRepository,
+                           TagRepository tagRepository,
                            StatsService statsService,
                            ThumbnailStorageService thumbnailStorageService,
                            com.local.ar44.service.CreatorService creatorService,
-                           VideoResponseMapper videoResponseMapper) {
+                           VideoResponseMapper videoResponseMapper,
+                           com.local.ar44.service.VideoImportService videoImportService) {
         this.videoRepository = videoRepository;
         this.appConfigRepository = appConfigRepository;
+        this.tagRepository = tagRepository;
         this.statsService = statsService;
         this.thumbnailStorageService = thumbnailStorageService;
         this.creatorService = creatorService;
         this.videoResponseMapper = videoResponseMapper;
+        this.videoImportService = videoImportService;
+    }
+
+    private Tag findOrCreateTag(String name) {
+        return tagRepository.findByNameIgnoreCase(name)
+                .orElseGet(() -> tagRepository.save(new Tag(name)));
+    }
+
+    private void assignTagsToVideo(Video video, List<String> tagNames) {
+        video.getTags().clear();
+        if (tagNames == null) return;
+        for (String name : tagNames) {
+            if (name == null) continue;
+            String trimmed = name.trim();
+            if (trimmed.isEmpty()) continue;
+            video.getTags().add(findOrCreateTag(trimmed));
+        }
     }
 
     // ========================
@@ -163,6 +188,60 @@ public class VideoController {
         return ResponseEntity.ok(cleaned);
     }
 
+    @GetMapping("/creators/detailed")
+    public List<com.local.ar44.dto.CreatorResponse> getCreatorsDetailed() {
+        return creatorService.findAll().stream()
+                .map(c -> new com.local.ar44.dto.CreatorResponse(c.getId(), c.getName()))
+                .sorted(java.util.Comparator.comparing(com.local.ar44.dto.CreatorResponse::getName, String.CASE_INSENSITIVE_ORDER))
+                .toList();
+    }
+
+    @DeleteMapping("/creators/{id}")
+    public ResponseEntity<Void> deleteCreator(@PathVariable Long id) {
+        creatorService.deleteById(id);
+        return ResponseEntity.ok().build();
+    }
+
+    @GetMapping("/tags")
+    public List<String> getTags() {
+        return tagRepository.findDistinctTagNames();
+    }
+
+    @PostMapping("/tags")
+    public ResponseEntity<String> addTag(@RequestParam String name) {
+        String cleaned = name == null ? "" : name.trim();
+        if (cleaned.isEmpty()) {
+            return ResponseEntity.badRequest().body("Nom du tag requis");
+        }
+        if (tagRepository.findByNameIgnoreCase(cleaned).isPresent()) {
+            return ResponseEntity.badRequest().body("Ce tag existe déjà");
+        }
+        tagRepository.save(new Tag(cleaned));
+        return ResponseEntity.ok(cleaned);
+    }
+
+    @GetMapping("/tags/detailed")
+    public List<com.local.ar44.dto.TagResponse> getTagsDetailed() {
+        return tagRepository.findAll().stream()
+                .map(t -> new com.local.ar44.dto.TagResponse(t.getId(), t.getName()))
+                .sorted(java.util.Comparator.comparing(com.local.ar44.dto.TagResponse::getName, String.CASE_INSENSITIVE_ORDER))
+                .toList();
+    }
+
+    @Transactional
+    @DeleteMapping("/tags/{id}")
+    public ResponseEntity<Void> deleteTag(@PathVariable Long id) {
+        List<Video> affected = videoRepository.findAll().stream()
+                .filter(v -> v.getTags() != null && v.getTags().stream().anyMatch(t -> t.getId().equals(id)))
+                .toList();
+        for (Video v : affected) {
+            v.getTags().removeIf(t -> t.getId().equals(id));
+        }
+        videoRepository.saveAll(affected);
+        tagRepository.deleteById(id);
+        return ResponseEntity.ok().build();
+    }
+
     // ========================
     // ➕ CREATE VIDEO
     // ========================
@@ -230,6 +309,9 @@ public class VideoController {
         if (req.getSourceIndex() != null) {
             int requested = Math.max(0, Math.min(5, req.getSourceIndex()));
             v.setSourceIndex(requested);
+        }
+        if (req.getTags() != null) {
+            assignTagsToVideo(v, req.getTags());
         }
 
         Video saved = videoRepository.save(v);
@@ -436,6 +518,11 @@ public class VideoController {
         videoRepository.saveAll(toSave);
 
         return "Favorites reordered";
+    }
+
+    @PostMapping("/import-from-disk")
+    public ResponseEntity<Map<String, Object>> importFromDisk() {
+        return ResponseEntity.ok(videoImportService.importFromDisk());
     }
 
     @PostMapping("/upload")

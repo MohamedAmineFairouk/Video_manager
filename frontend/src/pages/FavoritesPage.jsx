@@ -3,7 +3,6 @@ import Sidebar from '../components/Sidebar'
 import VideoGrid from '../components/VideoGrid'
 import ViewToggle from '../components/ViewToggle'
 import Pagination from '../components/Pagination'
-import AddVideoModal from '../components/AddVideoModal'
 import { api } from '../api/client'
 import { usePlayer } from '../context/PlayerContext'
 import { useViewPreferences } from '../context/ViewPreferencesContext'
@@ -13,7 +12,6 @@ export default function FavoritesPage() {
   const [loading, setLoading] = useState(true)
   const [page, setPage] = useState(1)
   const [pageSize] = useState(50)
-  const [addModalOpen, setAddModalOpen] = useState(false)
   const { openPlayer } = usePlayer()
   const { viewMode, gridSize } = useViewPreferences()
 
@@ -51,7 +49,7 @@ export default function FavoritesPage() {
 
   return (
     <div className="app">
-      <Sidebar onAddVideo={() => setAddModalOpen(true)} />
+      <Sidebar />
       <main className="content">
         <div className="list-controls">
           <div>
@@ -72,7 +70,6 @@ export default function FavoritesPage() {
           />
         )}
       </main>
-      <AddVideoModal open={addModalOpen} onClose={() => setAddModalOpen(false)} onAdded={load} />
     </div>
   )
 }

@@ -11,7 +11,6 @@ import FavoritesPage from './pages/FavoritesPage'
 import RecentlyPage from './pages/RecentlyPage'
 import PlaylistsPage from './pages/PlaylistsPage'
 import PlaylistDetailPage from './pages/PlaylistDetailPage'
-import SettingsPage from './pages/SettingsPage'
 import StatsPage from './pages/StatsPage'
 
 function resolvePage(path) {
@@ -21,8 +20,7 @@ function resolvePage(path) {
   if (path === '/playlists') return { Page: PlaylistsPage, name: 'playlists' }
   const playlistMatch = path.match(/^\/playlists\/(\d+)$/)
   if (playlistMatch) return { Page: PlaylistDetailPage, name: 'playlist-detail', props: { playlistId: playlistMatch[1] } }
-  if (path === '/settings') return { Page: SettingsPage, name: 'settings' }
-  if (path === '/stats') return { Page: StatsPage, name: 'stats' }
+  if (path === '/settings' || path === '/stats') return { Page: StatsPage, name: 'stats' }
   return null
 }
 
