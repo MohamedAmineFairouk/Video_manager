@@ -28,3 +28,7 @@ export const api = {
 export function thumbnailUrl(videoId) {
   return `${BASE}/videos/thumbnail?id=${videoId}`
 }
+
+export function storyboardUrl(videoId) {
+  return `${BASE}/videos/storyboard?id=${videoId}`
+}

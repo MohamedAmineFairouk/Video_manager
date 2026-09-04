@@ -47,6 +47,7 @@ public class VideoController {
     private final ThumbnailStorageService thumbnailStorageService;
     private final VideoResponseMapper videoResponseMapper;
     private final com.local.ar44.service.VideoImportService videoImportService;
+    private final com.local.ar44.service.StoryboardService storyboardService;
 
     public VideoController(VideoRepository videoRepository,
                            AppConfigRepository appConfigRepository,
@@ -55,7 +56,8 @@ public class VideoController {
                            ThumbnailStorageService thumbnailStorageService,
                            com.local.ar44.service.CreatorService creatorService,
                            VideoResponseMapper videoResponseMapper,
-                           com.local.ar44.service.VideoImportService videoImportService) {
+                           com.local.ar44.service.VideoImportService videoImportService,
+                           com.local.ar44.service.StoryboardService storyboardService) {
         this.videoRepository = videoRepository;
         this.appConfigRepository = appConfigRepository;
         this.tagRepository = tagRepository;
@@ -64,6 +66,7 @@ public class VideoController {
         this.creatorService = creatorService;
         this.videoResponseMapper = videoResponseMapper;
         this.videoImportService = videoImportService;
+        this.storyboardService = storyboardService;
     }
 
     private Tag findOrCreateTag(String name) {
@@ -450,6 +453,23 @@ public class VideoController {
         return ResponseEntity.ok()
                 .header("Content-Type", "image/jpeg")
                 .body(resource);
+    }
+
+    @GetMapping("/storyboard")
+    public ResponseEntity<Resource> getStoryboard(@RequestParam Long id) throws MalformedURLException {
+        Path path = thumbnailStorageService.getStoryboardPath(id);
+        if (!Files.exists(path)) {
+            return ResponseEntity.notFound().build();
+        }
+        Resource resource = new UrlResource(path.toUri());
+        return ResponseEntity.ok()
+                .header("Content-Type", "image/jpeg")
+                .body(resource);
+    }
+
+    @PostMapping("/storyboards/generate")
+    public ResponseEntity<Map<String, Object>> generateStoryboards() {
+        return ResponseEntity.ok(storyboardService.generateAll());
     }
 
     @GetMapping("/favorite/toggle")

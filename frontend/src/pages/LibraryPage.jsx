@@ -27,6 +27,7 @@ export default function LibraryPage() {
   const [newPlaylistName, setNewPlaylistName] = useState('')
   const [creatingPlaylist, setCreatingPlaylist] = useState(false)
   const [scanning, setScanning] = useState(false)
+  const [generatingStoryboards, setGeneratingStoryboards] = useState(false)
 
   const { openPlayer } = usePlayer()
   const { viewMode, gridSize } = useViewPreferences()
@@ -146,6 +147,19 @@ export default function LibraryPage() {
     }
   }
 
+  const generateStoryboards = async () => {
+    setGeneratingStoryboards(true)
+    setStatus('Génération des aperçus de survol (peut prendre plusieurs minutes)...')
+    try {
+      const result = await api.post('/videos/storyboards/generate')
+      setStatus(`${result.generated} aperçu(s) généré(s), ${result.skippedExisting} déjà présent(s).`)
+    } catch {
+      setStatus('Erreur lors de la génération des aperçus')
+    } finally {
+      setGeneratingStoryboards(false)
+    }
+  }
+
   const createPlaylistFromSelection = async () => {
     const name = newPlaylistName.trim()
     if (!name || selected.size === 0) return
@@ -169,6 +183,7 @@ export default function LibraryPage() {
             <span className="section-title">Filtres</span>
             <div style={{ display: 'flex', gap: 6 }}>
               <button className="filter-reset-btn" title="Scanner le dossier vidéos" disabled={scanning} onClick={scanFolder}>{scanning ? '⏳' : '🔄'}</button>
+              <button className="filter-reset-btn" title="Générer les aperçus de survol" disabled={generatingStoryboards} onClick={generateStoryboards}>{generatingStoryboards ? '⏳' : '🎞️'}</button>
               <button className="filter-reset-btn" title="Réinitialiser les filtres" onClick={resetFilters}>↺</button>
             </div>
           </div>

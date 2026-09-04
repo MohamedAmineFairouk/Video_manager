@@ -1,7 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { usePlayer } from '../context/PlayerContext'
-import { api, thumbnailUrl } from '../api/client'
-import { formatDuration, formatClock, levelToFilledStars } from '../utils'
+import { api, thumbnailUrl, storyboardUrl } from '../api/client'
+import {
+  formatDuration, formatClock, levelToFilledStars,
+  storyboardFrameIndex, STORYBOARD_COLS, STORYBOARD_TILE_WIDTH, STORYBOARD_TILE_HEIGHT,
+} from '../utils'
 import AddToPlaylistPopover from './AddToPlaylistPopover'
 import ConfirmModal from './ConfirmModal'
 import EntityPicker from './EntityPicker'
@@ -101,7 +104,13 @@ export default function VideoPlayerModal() {
     const rect = seekEl.getBoundingClientRect()
     const x = Math.max(0, Math.min(rect.width, e.clientX - rect.left))
     const ratio = rect.width > 0 ? x / rect.width : 0
-    setSeekPreview({ x, text: formatClock(el.duration * ratio) })
+    const frame = storyboardFrameIndex(ratio)
+    setSeekPreview({
+      x,
+      text: formatClock(el.duration * ratio),
+      col: frame % STORYBOARD_COLS,
+      row: Math.floor(frame / STORYBOARD_COLS),
+    })
   }
 
   const seekBy = (seconds) => {
@@ -263,7 +272,16 @@ export default function VideoPlayerModal() {
                       onChange={() => {}}
                     />
                     {seekPreview && (
-                      <span className="seek-preview visible" style={{ left: seekPreview.x }}>{seekPreview.text}</span>
+                      <div className="seek-preview visible" style={{ left: seekPreview.x }}>
+                        <div
+                          className="seek-preview-thumb"
+                          style={{
+                            backgroundImage: `url(${storyboardUrl(video.id)})`,
+                            backgroundPosition: `-${seekPreview.col * STORYBOARD_TILE_WIDTH}px -${seekPreview.row * STORYBOARD_TILE_HEIGHT}px`,
+                          }}
+                        />
+                        <span className="seek-preview-time">{seekPreview.text}</span>
+                      </div>
                     )}
                   </div>
                   <span className="yt-time">{formatClock(duration)}</span>

@@ -1,5 +1,6 @@
-import { formatDuration, levelToFilledStars } from '../utils'
-import { thumbnailUrl } from '../api/client'
+import { useEffect, useRef, useState } from 'react'
+import { formatDuration, levelToFilledStars, STORYBOARD_COLS, STORYBOARD_ROWS, STORYBOARD_FRAME_COUNT } from '../utils'
+import { thumbnailUrl, storyboardUrl } from '../api/client'
 
 export function LevelStars({ level, size = 15 }) {
   const filled = levelToFilledStars(level)
@@ -49,11 +50,45 @@ function DragHandle() {
   return <span className="drag-handle" title="Glisser pour réordonner">⠿</span>
 }
 
+function HoverStoryboard({ videoId, active }) {
+  const [frame, setFrame] = useState(0)
+  const intervalRef = useRef(null)
+
+  useEffect(() => {
+    if (!active) {
+      clearInterval(intervalRef.current)
+      setFrame(0)
+      return
+    }
+    intervalRef.current = setInterval(() => {
+      setFrame((f) => (f + 1) % STORYBOARD_FRAME_COUNT)
+    }, 350)
+    return () => clearInterval(intervalRef.current)
+  }, [active])
+
+  if (!active) return null
+
+  const col = frame % STORYBOARD_COLS
+  const row = Math.floor(frame / STORYBOARD_COLS)
+
+  return (
+    <div
+      className="video-thumb-hover-preview"
+      style={{
+        backgroundImage: `url(${storyboardUrl(videoId)})`,
+        backgroundSize: `${STORYBOARD_COLS * 100}% ${STORYBOARD_ROWS * 100}%`,
+        backgroundPosition: `${(col / (STORYBOARD_COLS - 1)) * 100}% ${(row / (STORYBOARD_ROWS - 1)) * 100}%`,
+      }}
+    />
+  )
+}
+
 export default function VideoCard({
   video, layout = 'grid', onOpen, onToggleFavorite, extraAction,
   selectable, selected, onToggleSelect,
   draggable, isDragging, isDragOver, onDragStart, onDragOver, onDrop, onDragEnd,
 }) {
+  const [hovering, setHovering] = useState(false)
   const handleThumbError = (e) => { e.currentTarget.style.opacity = 0.3 }
 
   const dragProps = draggable
@@ -73,7 +108,11 @@ export default function VideoCard({
             style={{ width: 18, height: 18, cursor: 'pointer', flexShrink: 0 }}
           />
         )}
-        <div className="video-list-thumb-wrap">
+        <div
+          className="video-list-thumb-wrap"
+          onMouseEnter={() => setHovering(true)}
+          onMouseLeave={() => setHovering(false)}
+        >
           <img
             src={thumbnailUrl(video.id)}
             className="video-list-thumb"
@@ -82,6 +121,7 @@ export default function VideoCard({
             onClick={() => onOpen(video)}
             onError={handleThumbError}
           />
+          <HoverStoryboard videoId={video.id} active={hovering} />
           <div className="video-list-duration">{formatDuration(video.durationMs)}</div>
         </div>
         <div className="video-list-info" onClick={() => onOpen(video)}>
@@ -145,14 +185,21 @@ export default function VideoCard({
         title="Favori"
       >♥</div>
       {topRightAction?.node}
-      <img
-        src={thumbnailUrl(video.id)}
-        className="video-thumb"
-        loading="lazy"
-        alt=""
-        onClick={() => onOpen(video)}
-        onError={handleThumbError}
-      />
+      <div
+        className="video-thumb-wrap"
+        onMouseEnter={() => setHovering(true)}
+        onMouseLeave={() => setHovering(false)}
+      >
+        <img
+          src={thumbnailUrl(video.id)}
+          className="video-thumb"
+          loading="lazy"
+          alt=""
+          onClick={() => onOpen(video)}
+          onError={handleThumbError}
+        />
+        <HoverStoryboard videoId={video.id} active={hovering} />
+      </div>
       <div className="video-overlay">
         <div className="video-title" title={video.title}>{video.title}</div>
         <div className="video-meta">

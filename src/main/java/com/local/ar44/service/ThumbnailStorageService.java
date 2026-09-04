@@ -36,6 +36,10 @@ public class ThumbnailStorageService {
         return thumbsDir.resolve(videoId + ".jpg");
     }
 
+    public Path getStoryboardPath(Long videoId) {
+        return thumbsDir.resolve("storyboard_" + videoId + ".jpg");
+    }
+
     public Path getThumbPath(String videoFileName) {
         String thumbName = toThumbnailName(videoFileName);
         Path result = thumbsDir.resolve(thumbName);

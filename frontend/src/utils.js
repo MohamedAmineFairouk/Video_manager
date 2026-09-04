@@ -23,3 +23,15 @@ export function levelToFilledStars(level) {
   const normalized = typeof level === 'number' && level >= 1 && level <= 5 ? level : 1
   return 6 - normalized
 }
+
+// Must match StoryboardService constants on the backend.
+export const STORYBOARD_COLS = 5
+export const STORYBOARD_ROWS = 4
+export const STORYBOARD_FRAME_COUNT = STORYBOARD_COLS * STORYBOARD_ROWS
+export const STORYBOARD_TILE_WIDTH = 160
+export const STORYBOARD_TILE_HEIGHT = 90
+
+export function storyboardFrameIndex(ratio) {
+  const clamped = Math.max(0, Math.min(0.999, ratio))
+  return Math.floor(clamped * STORYBOARD_FRAME_COUNT)
+}
