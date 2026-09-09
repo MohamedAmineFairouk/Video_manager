@@ -105,14 +105,17 @@ public class VideoController {
         return host;
     }
 
+    private static final java.util.concurrent.atomic.AtomicLong STREAM_REQUEST_SEQ = new java.util.concurrent.atomic.AtomicLong();
+
     @GetMapping("/file")
     public ResponseEntity<org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody> getVideoFile(
             @RequestParam String fileName,
             @RequestHeader(value = "Range", required = false) String rangeHeader) throws java.io.IOException {
+        long reqId = STREAM_REQUEST_SEQ.incrementAndGet();
         Path videoPath = Paths.get(videosDir, fileName).toAbsolutePath();
-        log.info("[VIDEO-READ] Demande de lecture pour {}", videoPath);
+        log.debug("[STREAM #{}] Demande de lecture pour {} (Range='{}')", reqId, videoPath, rangeHeader);
         if (!Files.exists(videoPath)) {
-            log.error("[VIDEO-ERROR] Fichier vidéo introuvable: {}", videoPath);
+            log.error("[STREAM #{}] Fichier vidéo introuvable: {}", reqId, videoPath);
             return ResponseEntity.notFound().build();
         }
 
@@ -135,21 +138,41 @@ public class VideoController {
         long rangeStart = start;
         long rangeEnd = end;
 
+        log.debug("[STREAM #{}] fileSize={} start={} end={} contentLength={} ({} MiB)",
+                reqId, fileSize, rangeStart, rangeEnd, contentLength, contentLength / (1024.0 * 1024.0));
+
         org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody body = outputStream -> {
+            long streamStartNanos = System.nanoTime();
+            long totalToSend = rangeEnd - rangeStart + 1;
+            long pos = rangeStart;
             try (java.io.RandomAccessFile raf = new java.io.RandomAccessFile(videoPath.toFile(), "r")) {
                 raf.seek(rangeStart);
                 byte[] buffer = new byte[64 * 1024];
-                long remaining = rangeEnd - rangeStart + 1;
-                long pos = rangeStart;
+                long remaining = totalToSend;
                 while (remaining > 0) {
                     int toRead = (int) Math.min(buffer.length, remaining);
                     int read = raf.read(buffer, 0, toRead);
-                    if (read == -1) break;
+                    if (read == -1) {
+                        log.warn("[STREAM #{}] EOF disque inattendu à pos={} (reçu {} / attendu {} octets)",
+                                reqId, pos, pos - rangeStart, totalToSend);
+                        break;
+                    }
                     fileObfuscationService.transform(buffer, 0, read, pos);
                     outputStream.write(buffer, 0, read);
                     pos += read;
                     remaining -= read;
                 }
+            } catch (java.io.IOException e) {
+                double totalElapsedSec = (System.nanoTime() - streamStartNanos) / 1_000_000_000.0;
+                // The player opens/cancels several probing Range requests within the first
+                // second on every load (normal MP4 metadata discovery) - only log cutoffs
+                // that happened well into an established stream, since those are the real
+                // problem cases (e.g. the async request timeout that used to fire at ~30s).
+                if (totalElapsedSec > 2.0) {
+                    log.warn("[STREAM #{}] interrompu après {} / {} octets en {}s: {}",
+                            reqId, pos - rangeStart, totalToSend, String.format("%.2f", totalElapsedSec), e.toString());
+                }
+                throw e;
             }
         };
 

@@ -440,6 +440,14 @@ export default function VideoPlayerModal() {
                         <div className="up-next-video-title">{v.title || v.fileName || 'Vidéo sans titre'}</div>
                         <div className="up-next-meta">{v.creators?.length ? v.creators.join(', ') : 'Unknown'}</div>
                         <div className="up-next-meta">{formatDuration(v.durationMs) || 'Durée inconnue'}</div>
+                        {v.tags?.length > 0 && (
+                          <div className="up-next-tags">
+                            {v.tags.slice(0, 3).map((t) => (
+                              <span key={t} className="tag-badge">{t}</span>
+                            ))}
+                            {v.tags.length > 3 && <span className="tag-badge">+{v.tags.length - 3}</span>}
+                          </div>
+                        )}
                       </div>
                     </button>
                   )
