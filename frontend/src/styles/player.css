@@ -33,6 +33,103 @@
     transform: scale(1.08);
 }
 
+/* Minimized (mini-player) mode: dock a small player bottom-right and let
+   the rest of the app stay interactive/clickable underneath it. */
+.player-modal.minimized {
+    position: fixed;
+    inset: auto;
+    top: auto;
+    left: auto;
+    right: 20px;
+    bottom: 20px;
+    display: block;
+    width: 340px;
+    max-width: calc(100vw - 40px);
+    padding: 0;
+    background: transparent;
+    z-index: 9997;
+    animation: miniPlayerIn 0.2s ease-out;
+}
+
+@keyframes miniPlayerIn {
+    from { opacity: 0; transform: translateY(16px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.player-modal.minimized .player-shell {
+    width: 100%;
+    max-width: none;
+    max-height: none;
+    overflow: hidden;
+    border-radius: 12px;
+    box-shadow: 0 16px 46px rgba(0, 0, 0, 0.65);
+}
+
+.player-modal.minimized .player-layout { display: block; }
+.player-modal.minimized .player-close-btn,
+.player-modal.minimized .player-info-panel,
+.player-modal.minimized .up-next-panel,
+.player-modal.minimized .yt-actions-right {
+    display: none;
+}
+
+.player-modal.minimized .player-video-wrap,
+.player-modal.minimized .player-video-wrap video {
+    max-height: 190px;
+}
+
+.player-modal.minimized .yt-btn-icon {
+    width: 30px;
+    height: 30px;
+    font-size: 14px;
+}
+
+.player-modal.minimized .yt-range {
+    display: none;
+}
+
+.player-modal.minimized .center-play-button {
+    width: 46px;
+    height: 46px;
+    margin-top: -23px;
+    margin-left: -23px;
+    font-size: 18px;
+}
+
+.player-modal.minimized .buffering-indicator {
+    width: 28px;
+    height: 28px;
+    margin-top: -14px;
+    margin-left: -14px;
+    border-width: 3px;
+}
+
+.mini-player-header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 8px;
+    background: linear-gradient(90deg, #0a1020, #12213c);
+    border-bottom: 1px solid rgba(59, 130, 246, 0.28);
+}
+
+.mini-player-title {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 12px;
+    font-weight: 700;
+    color: #dbeafe;
+}
+
+.mini-player-header .yt-btn-icon {
+    width: 26px;
+    height: 26px;
+    font-size: 13px;
+}
+
 .player-shell {
     position: relative;
     overflow: auto;
@@ -535,6 +632,32 @@
     font-weight: 700;
 }
 
+.up-next-header-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.up-next-header-row .up-next-title { margin-bottom: 0; }
+
+.save-queue-form {
+    display: flex;
+    gap: 6px;
+    margin: 10px 0 14px;
+}
+
+.save-queue-form input {
+    flex: 1;
+    min-width: 0;
+    background: rgba(15, 23, 42, 0.7);
+    border: 1px solid rgba(148, 163, 184, 0.35);
+    border-radius: 6px;
+    color: #e2e8f0;
+    padding: 6px 8px;
+    font-size: 12px;
+}
+
 .up-next-list {
     display: flex;
     flex-direction: column;
@@ -666,4 +789,36 @@
     color: #e2e8f0;
     padding: 6px 8px;
     font-size: 12px;
+}
+
+/* Right-click context menu on video cards */
+.video-context-menu {
+    position: fixed;
+    z-index: 10002;
+    min-width: 220px;
+    background: #14171f;
+    border: 1px solid rgba(148, 163, 184, 0.35);
+    border-radius: 10px;
+    box-shadow: 0 14px 34px rgba(0, 0, 0, 0.55);
+    padding: 6px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.video-context-menu button {
+    display: block;
+    width: 100%;
+    text-align: left;
+    background: transparent;
+    border: none;
+    color: #e2e8f0;
+    font-size: 13px;
+    padding: 9px 10px;
+    border-radius: 6px;
+    cursor: pointer;
+}
+
+.video-context-menu button:hover {
+    background: rgba(59, 130, 246, 0.22);
 }

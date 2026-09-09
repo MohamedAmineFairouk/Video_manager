@@ -3,7 +3,7 @@ import VideoCard from './VideoCard'
 
 export default function VideoGrid({
   videos, onOpen, onToggleFavorite, emptyMessage = 'Aucune vidéo trouvée.',
-  extraAction, viewMode = 'grid', gridSize = 'medium',
+  extraAction, onPlayNext, onAddToQueue, viewMode = 'grid', gridSize = 'medium',
   selectable, selectedIds, onToggleSelect,
   reorderable, onReorder,
 }) {
@@ -53,6 +53,8 @@ export default function VideoGrid({
           onOpen={() => onOpen(video)}
           onToggleFavorite={onToggleFavorite}
           extraAction={extraAction}
+          onPlayNext={onPlayNext}
+          onAddToQueue={onAddToQueue}
           selectable={selectable}
           selected={selectedIds?.has(video.id)}
           onToggleSelect={onToggleSelect}

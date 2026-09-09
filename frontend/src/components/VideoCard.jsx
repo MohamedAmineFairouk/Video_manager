@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { formatDuration, levelToFilledStars, STORYBOARD_COLS, STORYBOARD_ROWS, STORYBOARD_FRAME_COUNT } from '../utils'
 import { thumbnailUrl, storyboardUrl } from '../api/client'
+import AddToPlaylistPopover from './AddToPlaylistPopover'
 
 export function LevelStars({ level, size = 15 }) {
   const filled = levelToFilledStars(level)
@@ -83,13 +85,72 @@ function HoverStoryboard({ videoId, active }) {
   )
 }
 
+function VideoCardMenu({ video, pos, onPlayNext, onAddToQueue, onClose }) {
+  const [showPlaylist, setShowPlaylist] = useState(false)
+  const menuRef = useRef(null)
+  const virtualAnchorRef = useRef({
+    getBoundingClientRect: () => ({ top: pos.y, bottom: pos.y, left: pos.x, right: pos.x, width: 0, height: 0 }),
+    contains: () => false,
+  })
+
+  useEffect(() => {
+    if (showPlaylist) return undefined
+    function handleClick(e) {
+      if (menuRef.current?.contains(e.target)) return
+      onClose()
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [onClose, showPlaylist])
+
+  if (showPlaylist) {
+    return <AddToPlaylistPopover videoId={video.id} anchorRef={virtualAnchorRef} onClose={onClose} />
+  }
+
+  return createPortal(
+    <div className="video-context-menu" ref={menuRef} style={{ top: pos.y, left: pos.x }}>
+      <button type="button" onClick={() => setShowPlaylist(true)}>➕ Ajouter à une playlist</button>
+      {onPlayNext && <button type="button" onClick={() => { onPlayNext(video); onClose() }}>▶ Lire ensuite</button>}
+      {onAddToQueue && <button type="button" onClick={() => { onAddToQueue(video); onClose() }}>📥 Mettre en file d'attente</button>}
+    </div>,
+    document.body
+  )
+}
+
 export default function VideoCard({
   video, layout = 'grid', onOpen, onToggleFavorite, extraAction,
+  onPlayNext, onAddToQueue,
   selectable, selected, onToggleSelect,
   draggable, isDragging, isDragOver, onDragStart, onDragOver, onDrop, onDragEnd,
 }) {
   const [hovering, setHovering] = useState(false)
+  const [pulseExtra, setPulseExtra] = useState(false)
+  const [menuPos, setMenuPos] = useState(null)
   const handleThumbError = (e) => { e.currentTarget.style.opacity = 0.3 }
+
+  const handleExtraAction = (e) => {
+    e.stopPropagation()
+    extraAction.onClick(video)
+    setPulseExtra(false)
+    requestAnimationFrame(() => setPulseExtra(true))
+  }
+
+  const handleContextMenu = (e) => {
+    if (!onPlayNext && !onAddToQueue) return
+    e.preventDefault()
+    e.stopPropagation()
+    setMenuPos({ x: e.clientX, y: e.clientY })
+  }
+
+  const menuNode = menuPos && (
+    <VideoCardMenu
+      video={video}
+      pos={menuPos}
+      onPlayNext={onPlayNext}
+      onAddToQueue={onAddToQueue}
+      onClose={() => setMenuPos(null)}
+    />
+  )
 
   const dragProps = draggable
     ? { draggable: true, onDragStart, onDragOver, onDrop, onDragEnd }
@@ -98,7 +159,8 @@ export default function VideoCard({
 
   if (layout === 'list') {
     return (
-      <div className={`video-list-item ${dragStateClass}`} {...dragProps}>
+      <div className={`video-list-item ${dragStateClass}`} onContextMenu={handleContextMenu} {...dragProps}>
+        {menuNode}
         {draggable && <DragHandle />}
         {selectable && (
           <input
@@ -143,9 +205,10 @@ export default function VideoCard({
           >♥</div>
           {extraAction && (
             <div
-              className="favorite-icon"
+              className={`favorite-icon ${pulseExtra ? 'pulse-once' : ''}`}
               style={{ position: 'static' }}
-              onClick={(e) => { e.stopPropagation(); extraAction.onClick(video) }}
+              onClick={handleExtraAction}
+              onAnimationEnd={() => setPulseExtra(false)}
               title={extraAction.title}
             >{extraAction.icon}</div>
           )}
@@ -166,16 +229,18 @@ export default function VideoCard({
     : extraAction
       ? { node: (
           <div
-            className="favorite-icon"
+            className={`favorite-icon ${pulseExtra ? 'pulse-once' : ''}`}
             style={{ left: 'auto', right: 8 }}
-            onClick={(e) => { e.stopPropagation(); extraAction.onClick(video) }}
+            onClick={handleExtraAction}
+            onAnimationEnd={() => setPulseExtra(false)}
             title={extraAction.title}
           >{extraAction.icon}</div>
         ) }
       : null
 
   return (
-    <div className={`video-card ${dragStateClass}`} {...dragProps}>
+    <div className={`video-card ${dragStateClass}`} onContextMenu={handleContextMenu} {...dragProps}>
+      {menuNode}
       {draggable && (
         <div className="drag-handle drag-handle-grid" title="Glisser pour réordonner">⠿</div>
       )}

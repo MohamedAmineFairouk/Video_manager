@@ -785,6 +785,18 @@ button, input, select {
 
 .selector-compact:focus { border-color: var(--blue); }
 
+.filter-select-row {
+    display: flex;
+    gap: 6px;
+}
+
+.filter-select-row .selector-compact {
+    flex: 1;
+    min-width: 0;
+    padding: 6px 4px;
+    font-size: 11.5px;
+}
+
 .filter-row-split {
     display: flex;
     align-items: center;
@@ -977,6 +989,16 @@ button, input, select {
     color: #f43f5e;
 }
 
+.pulse-once {
+    animation: extraActionPop 0.4s ease;
+}
+
+@keyframes extraActionPop {
+    0% { transform: scale(1); }
+    40% { transform: scale(1.35); background: rgba(37, 99, 235, 0.85); }
+    100% { transform: scale(1); }
+}
+
 .creator-badge {
     display: inline-block;
     background: linear-gradient(90deg, #38bdf8, #6366f1);
@@ -1061,9 +1083,30 @@ button, input, select {
     display: flex;
     flex-wrap: wrap;
     gap: 6px;
-    max-height: 120px;
+    max-height: 260px;
     overflow-y: auto;
     padding: 2px;
+    scrollbar-width: thin;
+    scrollbar-color: #333 #0a0a0a;
+}
+
+.tag-filter-list::-webkit-scrollbar {
+    width: 8px;
+}
+
+.tag-filter-list::-webkit-scrollbar-track {
+    background: #0a0a0a;
+    border-radius: 8px;
+}
+
+.tag-filter-list::-webkit-scrollbar-thumb {
+    background: #333;
+    border-radius: 8px;
+    border: 1px solid #0a0a0a;
+}
+
+.tag-filter-list::-webkit-scrollbar-thumb:hover {
+    background: #3b82f6;
 }
 
 .level-stars .star {

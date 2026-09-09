@@ -12,7 +12,7 @@ export default function FavoritesPage() {
   const [loading, setLoading] = useState(true)
   const [page, setPage] = useState(1)
   const [pageSize] = useState(50)
-  const { openPlayer } = usePlayer()
+  const { openPlayer, addToQueue } = usePlayer()
   const { viewMode, gridSize } = useViewPreferences()
 
   const load = async () => {
@@ -34,8 +34,8 @@ export default function FavoritesPage() {
   )
 
   const handleOpen = (video) => {
-    const startIndex = videos.findIndex((v) => v.id === video.id)
-    openPlayer(videos, startIndex, {
+    // Only a playlist's own videos should pre-fill "up next" - see PlaylistDetailPage.
+    openPlayer([video], 0, {
       onVideoUpdated: (updated) => setVideos((prev) => prev.map((v) => (v.id === updated.id ? updated : v))),
       onVideoDeleted: (id) => setVideos((prev) => prev.filter((v) => v.id !== id)),
     })
@@ -64,11 +64,17 @@ export default function FavoritesPage() {
             videos={pageItems}
             onOpen={handleOpen}
             onToggleFavorite={toggleFavorite}
+            extraAction={{
+              icon: '➕',
+              title: 'Ajouter à la liste de lecture actuelle',
+              onClick: addToQueue,
+            }}
             emptyMessage="Aucun favori pour le moment."
             viewMode={viewMode}
             gridSize={gridSize}
           />
         )}
+        <Pagination page={clampedPage} totalPages={totalPages} onChange={setPage} />
       </main>
     </div>
   )

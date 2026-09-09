@@ -29,7 +29,7 @@ export default function LibraryPage() {
   const [scanning, setScanning] = useState(false)
   const [generatingStoryboards, setGeneratingStoryboards] = useState(false)
 
-  const { openPlayer } = usePlayer()
+  const { openPlayer, addToQueue, playNext } = usePlayer()
   const { viewMode, gridSize } = useViewPreferences()
   const { navigate } = useRouter()
 
@@ -96,8 +96,9 @@ export default function LibraryPage() {
   }
 
   const handleOpen = (video) => {
-    const startIndex = filtered.findIndex((v) => v.id === video.id)
-    openPlayer(filtered, startIndex, {
+    // Opening from the library starts an empty "up next" - only a playlist's
+    // own videos should pre-fill the queue (see PlaylistDetailPage).
+    openPlayer([video], 0, {
       onVideoUpdated: (updated) => setVideos((prev) => prev.map((v) => (v.id === updated.id ? updated : v))),
       onVideoDeleted: (id) => setVideos((prev) => prev.filter((v) => v.id !== id)),
     })
@@ -188,17 +189,19 @@ export default function LibraryPage() {
             </div>
           </div>
 
-          <select className="selector-compact" value={sort} onChange={(e) => setSort(e.target.value)}>
-            <option value="name-asc">Nom (A-Z)</option>
-            <option value="name-desc">Nom (Z-A)</option>
-            <option value="recent">Plus récent</option>
-            <option value="oldest">Plus ancien</option>
-          </select>
+          <div className="filter-select-row">
+            <select className="selector-compact" value={sort} onChange={(e) => setSort(e.target.value)}>
+              <option value="name-asc">Nom (A-Z)</option>
+              <option value="name-desc">Nom (Z-A)</option>
+              <option value="recent">Plus récent</option>
+              <option value="oldest">Plus ancien</option>
+            </select>
 
-          <select className="selector-compact" value={creatorFilter} onChange={(e) => { setCreatorFilter(e.target.value); setPage(1) }}>
-            <option value="">Tous les créateurs</option>
-            {creators.map((c) => <option key={c} value={c}>{c}</option>)}
-          </select>
+            <select className="selector-compact" value={creatorFilter} onChange={(e) => { setCreatorFilter(e.target.value); setPage(1) }}>
+              <option value="">Tous les créateurs</option>
+              {creators.map((c) => <option key={c} value={c}>{c}</option>)}
+            </select>
+          </div>
 
           <div className="filter-row-split">
             <div className="filter-stars-compact">
@@ -308,6 +311,13 @@ export default function LibraryPage() {
             videos={pageItems}
             onOpen={handleOpen}
             onToggleFavorite={toggleFavorite}
+            extraAction={{
+              icon: '➕',
+              title: 'Ajouter à la liste de lecture actuelle',
+              onClick: addToQueue,
+            }}
+            onPlayNext={playNext}
+            onAddToQueue={addToQueue}
             viewMode={viewMode}
             gridSize={gridSize}
             selectable
@@ -315,6 +325,8 @@ export default function LibraryPage() {
             onToggleSelect={(video) => toggleSelect(video.id)}
           />
         )}
+
+        <Pagination page={clampedPage} totalPages={totalPages} onChange={setPage} />
       </main>
     </div>
   )

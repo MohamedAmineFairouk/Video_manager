@@ -10,7 +10,7 @@ import ConfirmModal from './ConfirmModal'
 import EntityPicker from './EntityPicker'
 
 export default function VideoPlayerModal() {
-  const { queue, index, isOpen, closePlayer, goTo, applyVideoUpdate, applyVideoDeleted } = usePlayer()
+  const { queue, index, isOpen, minimized, setMinimized, closePlayer, goTo, applyVideoUpdate, applyVideoDeleted } = usePlayer()
   const video = isOpen && index >= 0 ? queue[index] : null
 
   const videoRef = useRef(null)
@@ -39,6 +39,9 @@ export default function VideoPlayerModal() {
   const [isFullscreenActive, setIsFullscreenActive] = useState(false)
   const [controlsVisible, setControlsVisible] = useState(true)
   const hideControlsTimeoutRef = useRef(null)
+  const [savingQueue, setSavingQueue] = useState(false)
+  const [queuePlaylistName, setQueuePlaylistName] = useState('')
+  const [savingQueueBusy, setSavingQueueBusy] = useState(false)
 
   useEffect(() => {
     api.get('/videos/creators').then(setAllCreators).catch(() => {})
@@ -55,6 +58,8 @@ export default function VideoPlayerModal() {
     setSaveStatus('')
     setCurrentTime(0)
     setDuration(0)
+    setSavingQueue(false)
+    setQueuePlaylistName('')
     api.post(`/videos/${video.id}/watched`).catch(() => {})
   }, [video?.id])
 
@@ -68,6 +73,24 @@ export default function VideoPlayerModal() {
     reportSession()
     closePlayer()
   }, [reportSession, closePlayer])
+
+  const toggleMinimize = useCallback(() => {
+    setMinimized((m) => !m)
+  }, [setMinimized])
+
+  const saveQueueAsPlaylist = async () => {
+    const name = queuePlaylistName.trim()
+    if (!name || queue.length === 0 || savingQueueBusy) return
+    setSavingQueueBusy(true)
+    try {
+      const created = await api.post('/playlists', { name })
+      await Promise.all(queue.map((v) => api.post(`/playlists/${created.id}/videos`, { videoId: v.id })))
+      setQueuePlaylistName('')
+      setSavingQueue(false)
+    } finally {
+      setSavingQueueBusy(false)
+    }
+  }
 
   const handleGoTo = useCallback((newIndex) => {
     reportSession()
@@ -256,9 +279,19 @@ export default function VideoPlayerModal() {
 
   return (
     <>
-      <div className="player-modal" onClick={(e) => { if (e.target === e.currentTarget) handleClose() }}>
+      <div
+        className={`player-modal ${minimized ? 'minimized' : ''}`}
+        onClick={(e) => { if (!minimized && e.target === e.currentTarget) handleClose() }}
+      >
         <button className="player-close-btn" title="Fermer" onClick={handleClose}>✕</button>
         <div className={`player-shell ${theater ? 'theater' : ''}`}>
+          {minimized && (
+            <div className="mini-player-header">
+              <span className="mini-player-title" title={video.title}>{video.title || 'Lecture vidéo'}</span>
+              <button className="yt-btn yt-btn-icon" title="Agrandir" onClick={toggleMinimize}>🗖</button>
+              <button className="yt-btn yt-btn-icon" title="Fermer" onClick={handleClose}>✕</button>
+            </div>
+          )}
           <div className="player-layout">
             <div className="player-main-column">
               <div
@@ -337,6 +370,7 @@ export default function VideoPlayerModal() {
                       <option value="1.5">1.5x</option>
                       <option value="2">2x</option>
                     </select>
+                    <button className="yt-btn yt-btn-icon hide-in-fullscreen" title="Réduire" onClick={toggleMinimize}>🗕</button>
                     <button className="yt-btn yt-btn-icon hide-in-fullscreen" title="Mode théâtre" onClick={() => setTheater((t) => !t)}>▭</button>
                     <button className={`yt-btn yt-btn-icon ${video.favorite ? 'active' : ''}`} title="Favori" onClick={toggleFavorite}>♥</button>
                     <button ref={playlistBtnRef} className="yt-btn yt-btn-icon hide-in-fullscreen" title="Ajouter à une playlist" onClick={() => setShowPlaylistPopover((s) => !s)}>➕</button>
@@ -428,7 +462,33 @@ export default function VideoPlayerModal() {
             </div>
 
             <aside className="up-next-panel">
-              <h3 className="up-next-title">À suivre</h3>
+              <div className="up-next-header-row">
+                <h3 className="up-next-title">À suivre</h3>
+                <button
+                  className="yt-btn yt-btn-icon"
+                  title="Enregistrer la liste de lecture actuelle comme playlist"
+                  onClick={() => setSavingQueue((s) => !s)}
+                >💾</button>
+              </div>
+              {savingQueue && (
+                <div className="save-queue-form">
+                  <input
+                    type="text"
+                    placeholder="Nom de la playlist"
+                    value={queuePlaylistName}
+                    autoFocus
+                    onChange={(e) => setQueuePlaylistName(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') saveQueueAsPlaylist() }}
+                  />
+                  <button
+                    type="button"
+                    className="btn"
+                    style={{ width: 'auto', margin: 0, padding: '6px 10px' }}
+                    disabled={!queuePlaylistName.trim() || savingQueueBusy}
+                    onClick={saveQueueAsPlaylist}
+                  >{savingQueueBusy ? '...' : 'Créer'}</button>
+                </div>
+              )}
               <div className="up-next-list">
                 {upNext.length === 0 && <p className="up-next-empty">Aucune autre vidéo dans cette liste.</p>}
                 {upNext.map((v, offset) => {
