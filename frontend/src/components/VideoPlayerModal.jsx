@@ -9,6 +9,41 @@ import AddToPlaylistPopover from './AddToPlaylistPopover'
 import ConfirmModal from './ConfirmModal'
 import EntityPicker from './EntityPicker'
 
+function EditableEntityField({ icon, tooltip, items, editing, onToggleEdit, badgeClass, allItems, onSelect, onCreate, onRemove, placeholder }) {
+  return (
+    <div className={`player-inline-field ${editing ? 'editing' : ''}`}>
+      {!editing ? (
+        <button
+          type="button"
+          className={`entity-edit-toggle ${badgeClass === 'tag-badge' ? 'tag-variant' : ''}`}
+          onClick={onToggleEdit}
+          title={`Modifier : ${tooltip}`}
+        >
+          <span className="entity-edit-icon">{icon}</span>
+          {items.length > 0 ? items.join(', ') : `Ajouter…`}
+        </button>
+      ) : (
+        <>
+          <span className="entity-edit-icon" title={tooltip}>{icon}</span>
+          {items.map((name) => (
+            <span key={name} className={`${badgeClass} selected`}>
+              {name}
+              <span className="remove-badge" onClick={() => onRemove(name)}>×</span>
+            </span>
+          ))}
+          <EntityPicker
+            items={allItems}
+            excluded={items}
+            onSelect={onSelect}
+            onCreate={onCreate}
+            placeholder={placeholder}
+          />
+        </>
+      )}
+    </div>
+  )
+}
+
 export default function VideoPlayerModal() {
   const { queue, index, isOpen, minimized, setMinimized, closePlayer, goTo, applyVideoUpdate, applyVideoDeleted } = usePlayer()
   const video = isOpen && index >= 0 ? queue[index] : null
@@ -33,6 +68,7 @@ export default function VideoPlayerModal() {
   const [editingCreators, setEditingCreators] = useState(false)
   const [allTags, setAllTags] = useState([])
   const [draftTags, setDraftTags] = useState([])
+  const [editingTags, setEditingTags] = useState(false)
   const [draftLevel, setDraftLevel] = useState(1)
   const [showPlaylistPopover, setShowPlaylistPopover] = useState(false)
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false)
@@ -54,6 +90,7 @@ export default function VideoPlayerModal() {
     setDraftCreators(video.creators || [])
     setEditingCreators(false)
     setDraftTags(video.tags || [])
+    setEditingTags(false)
     setDraftLevel(video.sourceIndex && video.sourceIndex >= 1 && video.sourceIndex <= 5 ? video.sourceIndex : 1)
     setTheater(false)
     setShowPlaylistPopover(false)
@@ -389,57 +426,36 @@ export default function VideoPlayerModal() {
 
               <section className="player-info-panel">
                 <div className="player-info-row">
-                  <h2 className="player-title-inline" title={video.title}>{video.title || 'Lecture vidéo'}</h2>
+                  <EditableEntityField
+                    icon="👤"
+                    tooltip="Créateurs"
+                    items={draftCreators}
+                    editing={editingCreators}
+                    onToggleEdit={() => setEditingCreators(true)}
+                    badgeClass="creator-badge"
+                    allItems={allCreators}
+                    onSelect={addCreatorByName}
+                    onCreate={createAndAddCreator}
+                    onRemove={removeCreator}
+                    placeholder="Ajouter un créateur..."
+                  />
+
+                  <EditableEntityField
+                    icon="🏷️"
+                    tooltip="Tags"
+                    items={draftTags}
+                    editing={editingTags}
+                    onToggleEdit={() => setEditingTags(true)}
+                    badgeClass="tag-badge"
+                    allItems={allTags}
+                    onSelect={addTagByName}
+                    onCreate={createAndAddTag}
+                    onRemove={removeTag}
+                    placeholder="Ajouter un tag..."
+                  />
 
                   <div className="player-inline-field">
-                    <label>Créateurs:</label>
-                    {!editingCreators ? (
-                      <button
-                        type="button"
-                        className="creator-edit-toggle"
-                        onClick={() => setEditingCreators(true)}
-                        title="Modifier les créateurs"
-                      >
-                        {draftCreators.length > 0 ? draftCreators.join(', ') : 'Ajouter un créateur…'}
-                      </button>
-                    ) : (
-                      <>
-                        {draftCreators.map((name) => (
-                          <span key={name} className="creator-badge selected">
-                            {name}
-                            <span className="remove-badge" onClick={() => removeCreator(name)}>×</span>
-                          </span>
-                        ))}
-                        <EntityPicker
-                          items={allCreators}
-                          excluded={draftCreators}
-                          onSelect={addCreatorByName}
-                          onCreate={createAndAddCreator}
-                          placeholder="Ajouter un créateur..."
-                        />
-                      </>
-                    )}
-                  </div>
-
-                  <div className="player-inline-field">
-                    <label>Tags:</label>
-                    {draftTags.map((name) => (
-                      <span key={name} className="tag-badge selected">
-                        {name}
-                        <span className="remove-badge" onClick={() => removeTag(name)}>×</span>
-                      </span>
-                    ))}
-                    <EntityPicker
-                      items={allTags}
-                      excluded={draftTags}
-                      onSelect={addTagByName}
-                      onCreate={createAndAddTag}
-                      placeholder="Ajouter un tag..."
-                    />
-                  </div>
-
-                  <div className="player-inline-field">
-                    <label>Niveau:</label>
+                    <span className="entity-edit-icon" title="Niveau">⭐</span>
                     <div className="player-level-stars">
                       {[1, 2, 3, 4, 5].map((i) => {
                         const levelValue = 6 - i
@@ -458,19 +474,15 @@ export default function VideoPlayerModal() {
                     <button className="player-save-btn" title="Enregistrer" onClick={saveEdits}>💾</button>
                     {saveStatus && <span className="muted-note">{saveStatus}</span>}
                   </div>
+                </div>
+
+                <div className="player-meta-row">
+                  <h2 className="player-title-inline" title={video.title}>{video.title || 'Lecture vidéo'}</h2>
 
                   <div className="player-stat-list">
-                    <div className="player-stat">
-                      <span>Favoris:</span>
-                      <strong>{video.favorite ? 'Oui' : 'Non'}</strong>
-                    </div>
-                    <div className="player-stat">
-                      <span>{formatDuration(video.durationMs)}</span>
-                    </div>
-                    <div className="player-stat">
-                      <span>👁 Vues:</span>
-                      <strong>{video.viewCount ?? 0}</strong>
-                    </div>
+                    <div className="player-stat" title="Favori">{video.favorite ? '❤️' : '🤍'}</div>
+                    <div className="player-stat" title="Durée">⏱ {formatDuration(video.durationMs)}</div>
+                    <div className="player-stat" title="Vues">👁 {video.viewCount ?? 0}</div>
                   </div>
                 </div>
               </section>
