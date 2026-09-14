@@ -48,4 +48,7 @@ public class Video {
     private LocalDateTime favoriteAt;
     private LocalDateTime lastWatchedAt;
     private Integer favoriteOrder; // new field to store explicit order in favorites/playlists
+
+    @Column(columnDefinition = "TEXT")
+    private String comment;
 }

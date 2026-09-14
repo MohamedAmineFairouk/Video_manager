@@ -44,6 +44,20 @@ function EditableEntityField({ icon, tooltip, items, editing, onToggleEdit, badg
   )
 }
 
+/** Finds mm:ss / h:mm:ss patterns in free text and returns unique {seconds, text} matches. */
+function parseTimestamps(text) {
+  if (!text) return []
+  const regex = /\b(\d{1,2}):([0-5]\d)(?::([0-5]\d))?\b/g
+  const seen = new Map()
+  let m
+  while ((m = regex.exec(text))) {
+    const nums = [m[1], m[2], m[3]].filter(Boolean).map(Number)
+    const seconds = nums.length === 3 ? nums[0] * 3600 + nums[1] * 60 + nums[2] : nums[0] * 60 + nums[1]
+    if (!seen.has(seconds)) seen.set(seconds, m[0])
+  }
+  return Array.from(seen, ([seconds, text]) => ({ seconds, text }))
+}
+
 export default function VideoPlayerModal() {
   const { queue, index, isOpen, minimized, setMinimized, closePlayer, goTo, applyVideoUpdate, applyVideoDeleted } = usePlayer()
   const video = isOpen && index >= 0 ? queue[index] : null
@@ -62,6 +76,10 @@ export default function VideoPlayerModal() {
   const [theater, setTheater] = useState(false)
   const [pulse, setPulse] = useState(false)
   const [playbackRate, setPlaybackRate] = useState(1)
+
+  const [draftTitle, setDraftTitle] = useState('')
+  const [editingTitle, setEditingTitle] = useState(false)
+  const [draftComment, setDraftComment] = useState('')
 
   const [allCreators, setAllCreators] = useState([])
   const [draftCreators, setDraftCreators] = useState([])
@@ -87,6 +105,9 @@ export default function VideoPlayerModal() {
 
   useEffect(() => {
     if (!video) return
+    setDraftTitle(video.title || '')
+    setEditingTitle(false)
+    setDraftComment(video.comment || '')
     setDraftCreators(video.creators || [])
     setEditingCreators(false)
     setDraftTags(video.tags || [])
@@ -280,13 +301,22 @@ export default function VideoPlayerModal() {
 
   const saveEdits = async () => {
     const updated = await api.put(`/videos/${video.id}`, {
+      title: draftTitle.trim() || video.title,
       creatorNames: draftCreators,
       tags: draftTags,
       sourceIndex: Math.max(0, Math.min(5, draftLevel)),
+      comment: draftComment,
     })
     applyVideoUpdate(updated)
     setSaveStatus('Enregistré ✔')
     setTimeout(() => setSaveStatus(''), 1500)
+  }
+
+  const seekToTime = (seconds) => {
+    const el = videoRef.current
+    if (!el) return
+    el.currentTime = seconds
+    el.play()
   }
 
   const confirmDelete = async () => {
@@ -315,6 +345,7 @@ export default function VideoPlayerModal() {
 
   const upNext = queue.slice(index + 1, index + 51)
   const filledStars = levelToFilledStars(draftLevel)
+  const commentTimestamps = parseTimestamps(draftComment)
 
   return (
     <>
@@ -477,13 +508,59 @@ export default function VideoPlayerModal() {
                 </div>
 
                 <div className="player-meta-row">
-                  <h2 className="player-title-inline" title={video.title}>{video.title || 'Lecture vidéo'}</h2>
+                  {!editingTitle ? (
+                    <h2
+                      className="player-title-inline editable"
+                      title="Cliquer pour modifier le titre"
+                      onClick={() => setEditingTitle(true)}
+                    >{draftTitle || 'Lecture vidéo'}</h2>
+                  ) : (
+                    <input
+                      type="text"
+                      className="player-title-input"
+                      value={draftTitle}
+                      autoFocus
+                      onChange={(e) => setDraftTitle(e.target.value)}
+                      onFocus={(e) => e.target.select()}
+                      onBlur={() => { setEditingTitle(false); saveEdits() }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') e.currentTarget.blur()
+                        if (e.key === 'Escape') { setDraftTitle(video.title || ''); setEditingTitle(false) }
+                      }}
+                    />
+                  )}
 
                   <div className="player-stat-list">
                     <div className="player-stat" title="Favori">{video.favorite ? '❤️' : '🤍'}</div>
                     <div className="player-stat" title="Durée">⏱ {formatDuration(video.durationMs)}</div>
                     <div className="player-stat" title="Vues">👁 {video.viewCount ?? 0}</div>
                   </div>
+                </div>
+
+                <div className="player-comment-row">
+                  <div className="player-comment-header">
+                    <span className="entity-edit-icon" title="Commentaire">💬</span>
+                    <span className="player-comment-hint">Astuce : un temps comme 01:30 devient cliquable pour y sauter</span>
+                    <button className="player-save-btn" title="Enregistrer le commentaire" onClick={saveEdits}>💾</button>
+                  </div>
+                  <textarea
+                    className="player-comment-textarea"
+                    placeholder="Ajouter un commentaire... (ex: 01:30 super moment)"
+                    value={draftComment}
+                    onChange={(e) => setDraftComment(e.target.value)}
+                  />
+                  {commentTimestamps.length > 0 && (
+                    <div className="comment-timestamps">
+                      {commentTimestamps.map((t) => (
+                        <button
+                          key={t.seconds}
+                          type="button"
+                          className="timestamp-chip"
+                          onClick={() => seekToTime(t.seconds)}
+                        >⏱ {t.text}</button>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </section>
             </div>

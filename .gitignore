@@ -37,3 +37,6 @@ build/
 /new_videos/
 /_backup_originals/
 /ar44.jar
+/ar44.log
+/backend-dev.log
+/frontend-dev.log

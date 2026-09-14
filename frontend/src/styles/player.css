@@ -484,6 +484,107 @@
     white-space: nowrap;
 }
 
+.player-title-inline.editable {
+    cursor: text;
+    border-radius: 6px;
+    padding: 2px 6px;
+    margin: -2px -6px;
+    transition: background 0.15s ease;
+}
+
+.player-title-inline.editable:hover {
+    background: rgba(99, 102, 241, 0.15);
+}
+
+.player-title-input {
+    margin: 0;
+    background: rgba(15, 23, 42, 0.8);
+    border: 1px solid rgba(99, 102, 241, 0.5);
+    border-radius: 6px;
+    color: #dbeafe;
+    font-size: 19px;
+    font-weight: 700;
+    padding: 2px 8px;
+    max-width: 320px;
+    outline: none;
+    animation: fieldExpand 0.18s ease;
+}
+
+.player-title-input:focus {
+    border-color: #818cf8;
+    box-shadow: 0 0 0 2px rgba(129, 140, 248, 0.25);
+}
+
+.player-comment-row {
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid rgba(148, 163, 184, 0.12);
+}
+
+.player-comment-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 6px;
+}
+
+.player-comment-hint {
+    font-size: 11px;
+    color: #64748b;
+    flex: 1;
+}
+
+.player-comment-textarea {
+    width: 100%;
+    min-height: 56px;
+    max-height: 140px;
+    resize: vertical;
+    background: rgba(15, 23, 42, 0.8);
+    border: 1px solid rgba(148, 163, 184, 0.25);
+    border-radius: 10px;
+    color: #e2e8f0;
+    font-size: 13px;
+    font-family: inherit;
+    padding: 8px 10px;
+    outline: none;
+    box-sizing: border-box;
+    transition: border-color 0.15s ease;
+}
+
+.player-comment-textarea:focus {
+    border-color: rgba(99, 102, 241, 0.6);
+}
+
+.player-comment-textarea::placeholder { color: #64748b; }
+
+.comment-timestamps {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 8px;
+}
+
+.timestamp-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: rgba(250, 204, 21, 0.12);
+    border: 1px solid rgba(250, 204, 21, 0.4);
+    color: #fde68a;
+    border-radius: 20px;
+    padding: 4px 12px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s ease, transform 0.15s ease;
+    animation: badgePopIn 0.18s ease;
+}
+
+.timestamp-chip:hover {
+    background: rgba(250, 204, 21, 0.25);
+    transform: translateY(-1px);
+}
+
 .player-inline-field {
     display: flex;
     align-items: center;

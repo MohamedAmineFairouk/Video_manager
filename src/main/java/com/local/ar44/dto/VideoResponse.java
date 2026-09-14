@@ -16,6 +16,7 @@ public class VideoResponse {
     private Boolean favorite;
     private Integer favoriteOrder; // nouvellement exposé au front-end
     private Long viewCount;
+    private String comment;
 
     // getters/setters
 }

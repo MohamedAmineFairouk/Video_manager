@@ -402,6 +402,7 @@ public class VideoController {
         if (req.getTags() != null) {
             assignTagsToVideo(v, req.getTags());
         }
+        if (req.getComment() != null) v.setComment(req.getComment());
 
         Video saved = videoRepository.save(v);
         resolveHost(session);

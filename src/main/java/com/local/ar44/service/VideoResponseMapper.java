@@ -50,6 +50,7 @@ public class VideoResponseMapper {
         response.setUrl("/api/videos/file?fileName=" + URLEncoder.encode(fileName, StandardCharsets.UTF_8));
         response.setFavoriteOrder(video.getFavoriteOrder());
         response.setViewCount(videoWatchLogRepository.countByVideoId(video.getId()));
+        response.setComment(video.getComment());
         return response;
     }
 }
