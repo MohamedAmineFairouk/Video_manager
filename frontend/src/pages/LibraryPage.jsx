@@ -8,6 +8,8 @@ import { usePlayer } from '../context/PlayerContext'
 import { useViewPreferences } from '../context/ViewPreferencesContext'
 import { useRouter } from '../router'
 
+const UNKNOWN_CREATOR = '__unknown__'
+
 export default function LibraryPage() {
   const [videos, setVideos] = useState([])
   const [creators, setCreators] = useState([])
@@ -15,19 +17,18 @@ export default function LibraryPage() {
   const [loading, setLoading] = useState(true)
   const [status, setStatus] = useState('')
 
-  const [sort, setSort] = useState('oldest')
+  const [sort, setSort] = useState('level-desc')
   const [creatorFilter, setCreatorFilter] = useState('')
   const [tagFilter, setTagFilter] = useState(new Set())
   const [levelFilter, setLevelFilter] = useState(null) // 1..5, inverted scale like the star UI
   const [favoriteOnly, setFavoriteOnly] = useState(false)
+  const [search, setSearch] = useState('')
 
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(50)
   const [selected, setSelected] = useState(new Set())
   const [newPlaylistName, setNewPlaylistName] = useState('')
   const [creatingPlaylist, setCreatingPlaylist] = useState(false)
-  const [scanning, setScanning] = useState(false)
-  const [generatingStoryboards, setGeneratingStoryboards] = useState(false)
 
   const { openPlayer, addToQueue, playNext } = usePlayer()
   const { viewMode, gridSize } = useViewPreferences()
@@ -57,7 +58,8 @@ export default function LibraryPage() {
 
   const filtered = useMemo(() => {
     let list = videos
-    if (creatorFilter) list = list.filter((v) => v.creators?.includes(creatorFilter))
+    if (creatorFilter === UNKNOWN_CREATOR) list = list.filter((v) => !v.creators?.length)
+    else if (creatorFilter) list = list.filter((v) => v.creators?.includes(creatorFilter))
     if (tagFilter.size > 0) {
       list = list.filter((v) => {
         const videoTags = v.tags || []
@@ -67,23 +69,36 @@ export default function LibraryPage() {
     if (levelFilter) list = list.filter((v) => String(v.sourceIndex) === String(levelFilter))
     if (favoriteOnly) list = list.filter((v) => v.favorite === true)
 
+    const query = search.trim().toLowerCase()
+    if (query) {
+      list = list.filter((v) => {
+        const title = (v.title || '').toLowerCase()
+        const inCreators = (v.creators || []).some((c) => c.toLowerCase().includes(query))
+        const inTags = (v.tags || []).some((t) => t.toLowerCase().includes(query))
+        return title.includes(query) || inCreators || inTags
+      })
+    }
+
     const sorted = [...list]
     switch (sort) {
       case 'name-asc': sorted.sort((a, b) => (a.title || '').localeCompare(b.title || '')); break
       case 'name-desc': sorted.sort((a, b) => (b.title || '').localeCompare(a.title || '')); break
       case 'recent': sorted.sort((a, b) => (b.id || 0) - (a.id || 0)); break
       case 'oldest': sorted.sort((a, b) => (a.id || 0) - (b.id || 0)); break
+      // sourceIndex is stored inverted (1 = 5 stars/best ... 5 = 1 star/worst), see utils.js levelToFilledStars
+      case 'level-desc': sorted.sort((a, b) => (a.sourceIndex || 0) - (b.sourceIndex || 0)); break
+      case 'level-asc': sorted.sort((a, b) => (b.sourceIndex || 0) - (a.sourceIndex || 0)); break
       default: break
     }
     return sorted
-  }, [videos, creatorFilter, tagFilter, levelFilter, favoriteOnly, sort])
+  }, [videos, creatorFilter, tagFilter, levelFilter, favoriteOnly, search, sort])
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize))
   const clampedPage = Math.min(page, totalPages)
   const pageItems = filtered.slice((clampedPage - 1) * pageSize, clampedPage * pageSize)
 
   const resetFilters = () => {
-    setCreatorFilter(''); setTagFilter(new Set()); setLevelFilter(null); setFavoriteOnly(false); setSort('oldest'); setPage(1)
+    setCreatorFilter(''); setTagFilter(new Set()); setLevelFilter(null); setFavoriteOnly(false); setSort('level-desc'); setPage(1)
   }
 
   const toggleTagFilter = (tag) => {
@@ -134,33 +149,6 @@ export default function LibraryPage() {
     setStatus(`Playlist M3U exportée (${chosen.length} vidéo(s)).`)
   }
 
-  const scanFolder = async () => {
-    setScanning(true)
-    setStatus('Analyse du dossier vidéos...')
-    try {
-      const result = await api.post('/videos/import-from-disk')
-      setStatus(`${result.imported} vidéo(s) importée(s), ${result.durationsUpdated} durée(s) mise(s) à jour.`)
-      await loadAll()
-    } catch {
-      setStatus('Erreur lors du scan du dossier')
-    } finally {
-      setScanning(false)
-    }
-  }
-
-  const generateStoryboards = async () => {
-    setGeneratingStoryboards(true)
-    setStatus('Génération des aperçus de survol (peut prendre plusieurs minutes)...')
-    try {
-      const result = await api.post('/videos/storyboards/generate')
-      setStatus(`${result.generated} aperçu(s) généré(s), ${result.skippedExisting} déjà présent(s).`)
-    } catch {
-      setStatus('Erreur lors de la génération des aperçus')
-    } finally {
-      setGeneratingStoryboards(false)
-    }
-  }
-
   const createPlaylistFromSelection = async () => {
     const name = newPlaylistName.trim()
     if (!name || selected.size === 0) return
@@ -180,25 +168,19 @@ export default function LibraryPage() {
     <div className="app">
       <Sidebar>
         <div className="filter-panel">
-          <div className="filter-panel-header">
-            <span className="section-title">Filtres</span>
-            <div style={{ display: 'flex', gap: 6 }}>
-              <button className="filter-reset-btn" title="Scanner le dossier vidéos" disabled={scanning} onClick={scanFolder}>{scanning ? '⏳' : '🔄'}</button>
-              <button className="filter-reset-btn" title="Générer les aperçus de survol" disabled={generatingStoryboards} onClick={generateStoryboards}>{generatingStoryboards ? '⏳' : '🎞️'}</button>
-              <button className="filter-reset-btn" title="Réinitialiser les filtres" onClick={resetFilters}>↺</button>
-            </div>
-          </div>
-
           <div className="filter-select-row">
-            <select className="selector-compact" value={sort} onChange={(e) => setSort(e.target.value)}>
+            <select className="selector-compact sort-select" value={sort} onChange={(e) => setSort(e.target.value)}>
+              <option value="level-desc" title="Meilleur → moins bon">★ ↓</option>
+              <option value="level-asc" title="Moins bon → meilleur">★ ↑</option>
               <option value="name-asc">Nom (A-Z)</option>
               <option value="name-desc">Nom (Z-A)</option>
               <option value="recent">Plus récent</option>
               <option value="oldest">Plus ancien</option>
             </select>
 
-            <select className="selector-compact" value={creatorFilter} onChange={(e) => { setCreatorFilter(e.target.value); setPage(1) }}>
-              <option value="">Tous les créateurs</option>
+            <select className="creator-filter-select" value={creatorFilter} onChange={(e) => { setCreatorFilter(e.target.value); setPage(1) }}>
+              <option value="">Tout</option>
+              <option value={UNKNOWN_CREATOR}>UKWN</option>
               {creators.map((c) => <option key={c} value={c}>{c}</option>)}
             </select>
           </div>
@@ -218,25 +200,25 @@ export default function LibraryPage() {
                 )
               })}
             </div>
-            <label className={`filter-favorite-toggle ${favoriteOnly ? 'active' : ''}`}>
-              <input type="checkbox" checked={favoriteOnly} onChange={(e) => { setFavoriteOnly(e.target.checked); setPage(1) }} />
-              ♥ Favoris
-            </label>
+            <div className="filter-favorite-reset-group">
+              <label className={`filter-favorite-toggle ${favoriteOnly ? 'active' : ''}`}>
+                <input type="checkbox" checked={favoriteOnly} onChange={(e) => { setFavoriteOnly(e.target.checked); setPage(1) }} />
+                ♥
+              </label>
+              <button className="filter-reset-btn" title="Réinitialiser les filtres" onClick={resetFilters}>↺</button>
+            </div>
           </div>
 
           {tags.length > 0 && (
-            <div>
-              <p className="section-title" style={{ fontSize: 11, marginBottom: 6 }}>Tags</p>
-              <div className="tag-filter-list">
-                {tags.map((t) => (
-                  <button
-                    key={t}
-                    type="button"
-                    className={`tag-filter-chip ${tagFilter.has(t) ? 'active' : ''}`}
-                    onClick={() => toggleTagFilter(t)}
-                  >{t}</button>
-                ))}
-              </div>
+            <div className="tag-filter-list">
+              {tags.map((t) => (
+                <button
+                  key={t}
+                  type="button"
+                  className={`tag-filter-chip ${tagFilter.has(t) ? 'active' : ''}`}
+                  onClick={() => toggleTagFilter(t)}
+                >{t}</button>
+              ))}
             </div>
           )}
         </div>
@@ -281,6 +263,19 @@ export default function LibraryPage() {
         <div className="brand-row">
           <img src="/2938237.png" alt="icon" className="brand-logo" />
           <span className="brand-name" style={{ fontSize: '2.1rem' }}>Ar44</span>
+          <div className="nav-search-wrap">
+            <span className="nav-search-icon">🔍</span>
+            <input
+              type="text"
+              className="nav-search-input"
+              placeholder="Rechercher dans les vidéos filtrées..."
+              value={search}
+              onChange={(e) => { setSearch(e.target.value); setPage(1) }}
+            />
+            {search && (
+              <button type="button" className="nav-search-clear" onClick={() => setSearch('')}>✕</button>
+            )}
+          </div>
         </div>
 
         <div className="list-controls">

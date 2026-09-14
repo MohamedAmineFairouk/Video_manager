@@ -16,9 +16,8 @@ export function LevelStars({ level, size = 15 }) {
 }
 
 function CreatorBadges({ creators }) {
-  return creators?.length
-    ? creators.map((c) => <span key={c} className="creator-badge">{c}</span>)
-    : <span className="creator-badge" style={{ background: '#64748b' }}>Unknown</span>
+  if (!creators?.length) return null
+  return creators.map((c) => <span key={c} className="creator-badge">{c}</span>)
 }
 
 function TagBadges({ tags, max = 2 }) {

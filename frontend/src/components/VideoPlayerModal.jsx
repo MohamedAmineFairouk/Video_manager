@@ -30,6 +30,7 @@ export default function VideoPlayerModal() {
 
   const [allCreators, setAllCreators] = useState([])
   const [draftCreators, setDraftCreators] = useState([])
+  const [editingCreators, setEditingCreators] = useState(false)
   const [allTags, setAllTags] = useState([])
   const [draftTags, setDraftTags] = useState([])
   const [draftLevel, setDraftLevel] = useState(1)
@@ -51,6 +52,7 @@ export default function VideoPlayerModal() {
   useEffect(() => {
     if (!video) return
     setDraftCreators(video.creators || [])
+    setEditingCreators(false)
     setDraftTags(video.tags || [])
     setDraftLevel(video.sourceIndex && video.sourceIndex >= 1 && video.sourceIndex <= 5 ? video.sourceIndex : 1)
     setTheater(false)
@@ -391,19 +393,32 @@ export default function VideoPlayerModal() {
 
                   <div className="player-inline-field">
                     <label>Créateurs:</label>
-                    {draftCreators.map((name) => (
-                      <span key={name} className="creator-badge selected">
-                        {name}
-                        <span className="remove-badge" onClick={() => removeCreator(name)}>×</span>
-                      </span>
-                    ))}
-                    <EntityPicker
-                      items={allCreators}
-                      excluded={draftCreators}
-                      onSelect={addCreatorByName}
-                      onCreate={createAndAddCreator}
-                      placeholder="Ajouter un créateur..."
-                    />
+                    {!editingCreators ? (
+                      <button
+                        type="button"
+                        className="creator-edit-toggle"
+                        onClick={() => setEditingCreators(true)}
+                        title="Modifier les créateurs"
+                      >
+                        {draftCreators.length > 0 ? draftCreators.join(', ') : 'Ajouter un créateur…'}
+                      </button>
+                    ) : (
+                      <>
+                        {draftCreators.map((name) => (
+                          <span key={name} className="creator-badge selected">
+                            {name}
+                            <span className="remove-badge" onClick={() => removeCreator(name)}>×</span>
+                          </span>
+                        ))}
+                        <EntityPicker
+                          items={allCreators}
+                          excluded={draftCreators}
+                          onSelect={addCreatorByName}
+                          onCreate={createAndAddCreator}
+                          placeholder="Ajouter un créateur..."
+                        />
+                      </>
+                    )}
                   </div>
 
                   <div className="player-inline-field">
@@ -498,7 +513,7 @@ export default function VideoPlayerModal() {
                       <img className="up-next-thumbnail" src={thumbnailUrl(v.id)} alt="" loading="lazy" onError={(e) => { e.currentTarget.style.opacity = 0.3 }} />
                       <div className="up-next-details">
                         <div className="up-next-video-title">{v.title || v.fileName || 'Vidéo sans titre'}</div>
-                        <div className="up-next-meta">{v.creators?.length ? v.creators.join(', ') : 'Unknown'}</div>
+                        {v.creators?.length > 0 && <div className="up-next-meta">{v.creators.join(', ')}</div>}
                         <div className="up-next-meta">{formatDuration(v.durationMs) || 'Durée inconnue'}</div>
                         {v.tags?.length > 0 && (
                           <div className="up-next-tags">

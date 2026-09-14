@@ -482,6 +482,22 @@
     text-transform: uppercase;
 }
 
+.creator-edit-toggle {
+    background: rgba(99, 102, 241, 0.15);
+    border: 1px dashed rgba(99, 102, 241, 0.5);
+    color: #c7d2fe;
+    border-radius: 8px;
+    padding: 3px 10px;
+    font-size: 12px;
+    cursor: pointer;
+    transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.creator-edit-toggle:hover {
+    background: rgba(99, 102, 241, 0.28);
+    border-color: rgba(99, 102, 241, 0.8);
+}
+
 .player-stat-list {
     display: flex;
     align-items: center;
