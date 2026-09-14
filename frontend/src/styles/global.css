@@ -262,6 +262,31 @@ button, input, select {
 .video-grid[data-size="small"] .video-thumb { height: 110px; }
 .video-grid[data-size="large"] .video-thumb { height: 220px; }
 
+/* Overlay text/badges/stars don't scale with the thumbnail by default (only
+   grid columns + thumb height do above) — scale them explicitly per size so
+   "L" doesn't leave tiny info on a big card, and "S" doesn't leave oversized
+   info on a small one. */
+.video-grid[data-size="small"] .video-overlay { padding: 10px 8px 6px; }
+.video-grid[data-size="small"] .video-title { font-size: 12px; }
+.video-grid[data-size="small"] .video-meta { font-size: 10px; gap: 3px; }
+.video-grid[data-size="small"] .tag-text { font-size: 9px; }
+.video-grid[data-size="small"] .view-count { font-size: 9px; }
+.video-grid[data-size="small"] .creator-badge { font-size: 9px; padding: 1px 7px; }
+.video-grid[data-size="small"] .video-duration { font-size: 9px; padding: 1px 5px; top: 6px; right: 6px; }
+.video-grid[data-size="small"] .favorite-icon { width: 26px; height: 26px; font-size: 13px; top: 6px; left: 6px; }
+.video-grid[data-size="small"] .level-stars .star { font-size: 11px !important; }
+
+.video-grid[data-size="large"] .video-overlay { padding: 22px 18px 14px; }
+.video-grid[data-size="large"] .video-title { font-size: 20px; }
+.video-grid[data-size="large"] .video-meta { font-size: 15px; gap: 6px; }
+.video-grid[data-size="large"] .tag-text { font-size: 14px; }
+.video-grid[data-size="large"] .view-count { font-size: 14px; }
+.video-grid[data-size="large"] .creator-badge { font-size: 14px; padding: 4px 12px; }
+.video-grid[data-size="large"] .video-duration { font-size: 13px; padding: 4px 10px; top: 12px; right: 12px; }
+.video-grid[data-size="large"] .favorite-icon { width: 42px; height: 42px; font-size: 22px; top: 12px; left: 12px; }
+.video-grid[data-size="large"] .level-stars .star { font-size: 20px !important; }
+.video-grid[data-size="large"] .drag-handle-grid { font-size: 18px; padding: 4px 12px; }
+
 .video-list {
     display: flex;
     flex-direction: column;
