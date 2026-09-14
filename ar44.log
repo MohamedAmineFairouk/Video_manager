@@ -284,3 +284,5 @@ java.io.IOException: Une connexion établie a été abandonnée par un logiciel de v
 	at java.base/java.lang.Thread.run(Thread.java:842) ~[na:na]
 
 2026-09-14T08:35:34.545+02:00  WARN 24432 --- [task-18] c.local.ar44.controller.VideoController  : [STREAM #18] interrompu après 28246016 / 97548626 octets en 24,93s: org.springframework.web.context.request.async.AsyncRequestNotUsableException: ServletOutputStream failed to write: java.io.IOException: Connection reset by peer
+2026-09-14T08:37:20.527+02:00  WARN 24432 --- [task-21] c.local.ar44.controller.VideoController  : [STREAM #21] interrompu après 17170432 / 98662738 octets en 5,09s: org.springframework.web.context.request.async.AsyncRequestNotUsableException: ServletOutputStream failed to write: java.io.IOException: Connection reset by peer
+2026-09-14T08:37:37.739+02:00  WARN 24432 --- [task-22] c.local.ar44.controller.VideoController  : [STREAM #22] interrompu après 20250624 / 67467602 octets en 17,21s: org.springframework.web.context.request.async.AsyncRequestNotUsableException: ServletOutputStream failed to write: java.io.IOException: Connection reset by peer

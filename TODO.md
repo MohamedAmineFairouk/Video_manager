@@ -45,6 +45,23 @@ Liste de tâches à implémenter. Cocher au fur et à mesure.
 - [x] Tri et filtre créateur remis sur la même ligne (`.filter-select-row`).
 - [x] Libellés du filtre créateur raccourcis : "Tout" (au lieu de "Tous les créateurs") et "UKWN" (au lieu de "UNKNOWN (sans créateur)").
 
+## 10. Titres obfusqués en base de données
+- [x] Le titre des vidéos n'est plus stocké en clair dans Postgres (colonne `video.title`), mais reste lisible normalement sur le front (décodage transparent à la lecture).
+- Approche : simple obfuscation réversible (XOR + Base64, préfixe `OBF1:`), même philosophie que `FileObfuscationService` déjà utilisé pour les fichiers vidéo/miniatures — pas du chiffrement cryptographique fort, juste pour qu'une lecture brute de la base ne montre pas les titres.
+- Fichiers : `src/main/java/com/local/ar44/converter/TitleObfuscationConverter.java` (nouveau), `dto/Video.java` (`@Convert` sur `title`), `repo/VideoRepository.java` (requêtes SQL brutes de migration), `service/TitleObfuscationMigrationRunner.java` (nouveau, migration automatique au démarrage).
+- L'endpoint `GET /api/videos/search` (`VideoController#search`) ne pouvait plus faire de `LIKE` SQL sur une colonne obfusquée : il filtre désormais en mémoire sur le titre décodé (cet endpoint n'est pas utilisé par le front actuellement, qui a sa propre recherche client-side).
+- Migration : au démarrage du backend, tous les titres encore en clair ont été réécrits en base (421/421 lignes migrées et vérifiées).
+
+## 11. Renommage des titres (base de données)
+- [x] Tous les titres des 421 vidéos ont été renommés en `{Créateur}_{numéro}` (numéro sur 3 chiffres, ex: `AAd_001`, `AAd_002`...), la numérotation repartant à 001 pour chaque créateur.
+- [x] Les vidéos sans créateur utilisent `ZAr` comme préfixe (ex: `ZAr_001`... `ZAr_129`, 129 vidéos sans créateur).
+- [x] Pour les 8 vidéos ayant 2 créateurs, le premier par ordre alphabétique a été utilisé.
+- Exécuté comme une migration ponctuelle en une seule transaction SQL (`BEGIN`/`COMMIT`), directement en base, en réutilisant l'algorithme d'obfuscation (`OBF1:` + XOR + Base64) pour que le nouveau titre soit stocké dans le même format que le reste de la table.
+- Une sauvegarde des 421 anciens titres (valeurs obfusquées) a été prise avant l'opération, en plus de la sauvegarde de base déjà faite par l'utilisateur.
+- Vérifié par décodage direct d'un échantillon (ex: `AAd_001`, `AAd_002`, `LAn_001`, `ZAr_001`...).
+
 ---
-**Statut** : toutes les tâches ci-dessus ont été implémentées côté front (`frontend/src/...`) et le build (`npm run build`) passe sans erreur.
+**Statut** : toutes les tâches ci-dessus ont été implémentées et testées.
+- Front : `npm run build` passe sans erreur.
+- Backend : `mvnw compile` passe sans erreur ; migration des titres vérifiée directement en base (`psql`) + round-trip de décodage vérifié indépendamment.
 Backend (`mvnw spring-boot:run`, port 8080) et frontend dev (`npm run dev`, port 5173) tournent en local pour vérification visuelle.

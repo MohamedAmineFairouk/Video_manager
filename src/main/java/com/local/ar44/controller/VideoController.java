@@ -224,8 +224,12 @@ public class VideoController {
     @GetMapping("/search")
     public List<VideoResponse> search(@RequestParam String q, HttpSession session) {
         resolveHost(session);
-        return videoRepository.findByTitleContainingIgnoreCase(q)
+        String needle = q.toLowerCase();
+        // Le titre est obfusqué en base (TitleObfuscationConverter) : impossible de faire un
+        // LIKE SQL dessus, on filtre donc en mémoire sur la valeur décodée par l'entité.
+        return videoRepository.findAll()
                 .stream()
+                .filter(v -> v.getTitle() != null && v.getTitle().toLowerCase().contains(needle))
                 .map(videoResponseMapper::toResponse)
                 .toList();
     }

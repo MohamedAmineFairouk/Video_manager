@@ -1,5 +1,6 @@
 package com.local.ar44.dto;
 
+import com.local.ar44.converter.TitleObfuscationConverter;
 import jakarta.persistence.*;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
@@ -18,6 +19,8 @@ public class Video {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Convert(converter = TitleObfuscationConverter.class)
+    @Column(length = 500)
     private String title;
     private String fileName;
     private Long durationMs;
