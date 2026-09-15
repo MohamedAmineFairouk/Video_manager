@@ -1,8 +1,10 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import Sidebar from '../components/Sidebar'
 import VideoGrid from '../components/VideoGrid'
+import VideoCarousel, { pickRandom } from '../components/VideoCarousel'
 import ViewToggle from '../components/ViewToggle'
 import Pagination from '../components/Pagination'
+import AddToPlaylistPopover from '../components/AddToPlaylistPopover'
 import { api } from '../api/client'
 import { usePlayer } from '../context/PlayerContext'
 import { useViewPreferences } from '../context/ViewPreferencesContext'
@@ -12,6 +14,7 @@ const UNKNOWN_CREATOR = '__unknown__'
 
 export default function LibraryPage() {
   const [videos, setVideos] = useState([])
+  const [carouselVideos, setCarouselVideos] = useState([])
   const [creators, setCreators] = useState([])
   const [tags, setTags] = useState([])
   const [loading, setLoading] = useState(true)
@@ -29,6 +32,8 @@ export default function LibraryPage() {
   const [selected, setSelected] = useState(new Set())
   const [newPlaylistName, setNewPlaylistName] = useState('')
   const [creatingPlaylist, setCreatingPlaylist] = useState(false)
+  const [showBulkPlaylist, setShowBulkPlaylist] = useState(false)
+  const bulkPlaylistBtnRef = useRef(null)
 
   const { openPlayer, addToQueue, playNext } = usePlayer()
   const { viewMode, gridSize } = useViewPreferences()
@@ -44,6 +49,7 @@ export default function LibraryPage() {
         api.get('/videos/tags'),
       ])
       setVideos(videoList)
+      setCarouselVideos(pickRandom(videoList, 18))
       setCreators(creatorList)
       setTags(tagList)
       setStatus('')
@@ -130,6 +136,11 @@ export default function LibraryPage() {
       if (next.has(id)) next.delete(id); else next.add(id)
       return next
     })
+  }
+
+  const addSelectionToQueue = () => {
+    videos.filter((v) => selected.has(v.id)).forEach((v) => addToQueue(v))
+    setStatus(`${selected.size} vidéo(s) ajoutée(s) à la file d'attente.`)
   }
 
   const exportM3U = () => {
@@ -278,6 +289,8 @@ export default function LibraryPage() {
           </div>
         </div>
 
+        <VideoCarousel videos={carouselVideos} onOpen={handleOpen} />
+
         <div className="list-controls">
           <div className="count-box">{filtered.length} vidéo(s)</div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
@@ -318,11 +331,34 @@ export default function LibraryPage() {
             selectable
             selectedIds={selected}
             onToggleSelect={(video) => toggleSelect(video.id)}
+            onMarqueeSelect={(ids) => setSelected(new Set(ids))}
+            onClearSelection={() => setSelected(new Set())}
           />
         )}
 
         <Pagination page={clampedPage} totalPages={totalPages} onChange={setPage} />
       </main>
+
+      {selected.size > 0 && (
+        <div className="bulk-toolbar">
+          <span className="bulk-toolbar-count">{selected.size} vidéo{selected.size > 1 ? 's' : ''} sélectionnée{selected.size > 1 ? 's' : ''}</span>
+          <button type="button" className="bulk-toolbar-btn" onClick={addSelectionToQueue}>📥 File d'attente</button>
+          <button
+            type="button"
+            ref={bulkPlaylistBtnRef}
+            className="bulk-toolbar-btn"
+            onClick={() => setShowBulkPlaylist((s) => !s)}
+          >➕ Playlist</button>
+          {showBulkPlaylist && (
+            <AddToPlaylistPopover
+              videoIds={Array.from(selected)}
+              anchorRef={bulkPlaylistBtnRef}
+              onClose={() => setShowBulkPlaylist(false)}
+            />
+          )}
+          <button type="button" className="bulk-toolbar-btn subtle" title="Annuler la sélection" onClick={() => setSelected(new Set())}>✕</button>
+        </div>
+      )}
     </div>
   )
 }

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { forwardRef, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { formatDuration, levelToFilledStars, STORYBOARD_COLS, STORYBOARD_ROWS, STORYBOARD_FRAME_COUNT } from '../utils'
 import { thumbnailUrl, storyboardUrl } from '../api/client'
@@ -116,12 +116,12 @@ function VideoCardMenu({ video, pos, onPlayNext, onAddToQueue, onClose }) {
   )
 }
 
-export default function VideoCard({
+const VideoCard = forwardRef(function VideoCard({
   video, layout = 'grid', onOpen, onToggleFavorite, extraAction,
   onPlayNext, onAddToQueue,
   selectable, selected, onToggleSelect,
   draggable, isDragging, isDragOver, onDragStart, onDragOver, onDrop, onDragEnd,
-}) {
+}, ref) {
   const [hovering, setHovering] = useState(false)
   const [pulseExtra, setPulseExtra] = useState(false)
   const [menuPos, setMenuPos] = useState(null)
@@ -154,11 +154,11 @@ export default function VideoCard({
   const dragProps = draggable
     ? { draggable: true, onDragStart, onDragOver, onDrop, onDragEnd }
     : {}
-  const dragStateClass = `${isDragging ? 'dragging' : ''} ${isDragOver ? 'drag-over' : ''}`.trim()
+  const dragStateClass = `${isDragging ? 'dragging' : ''} ${isDragOver ? 'drag-over' : ''} ${selected ? 'selected' : ''}`.trim()
 
   if (layout === 'list') {
     return (
-      <div className={`video-list-item ${dragStateClass}`} onContextMenu={handleContextMenu} {...dragProps}>
+      <div ref={ref} className={`video-list-item ${dragStateClass}`} onContextMenu={handleContextMenu} {...dragProps}>
         {menuNode}
         {draggable && <DragHandle />}
         {selectable && (
@@ -238,7 +238,7 @@ export default function VideoCard({
       : null
 
   return (
-    <div className={`video-card ${dragStateClass}`} onContextMenu={handleContextMenu} {...dragProps}>
+    <div ref={ref} className={`video-card ${dragStateClass}`} onContextMenu={handleContextMenu} {...dragProps}>
       {menuNode}
       {draggable && (
         <div className="drag-handle drag-handle-grid" title="Glisser pour réordonner">⠿</div>
@@ -276,4 +276,6 @@ export default function VideoCard({
       <div className="video-duration" style={topRightAction ? { top: 32 } : undefined}>{formatDuration(video.durationMs)}</div>
     </div>
   )
-}
+})
+
+export default VideoCard

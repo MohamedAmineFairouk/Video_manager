@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { usePlayer } from '../context/PlayerContext'
-import { api, thumbnailUrl, storyboardUrl } from '../api/client'
+import { api, anchorsApi, thumbnailUrl, storyboardUrl } from '../api/client'
 import {
   formatDuration, formatClock, levelToFilledStars,
   storyboardFrameIndex, STORYBOARD_COLS, STORYBOARD_TILE_WIDTH, STORYBOARD_TILE_HEIGHT,
@@ -44,20 +44,6 @@ function EditableEntityField({ icon, tooltip, items, editing, onToggleEdit, badg
   )
 }
 
-/** Finds mm:ss / h:mm:ss patterns in free text and returns unique {seconds, text} matches. */
-function parseTimestamps(text) {
-  if (!text) return []
-  const regex = /\b(\d{1,2}):([0-5]\d)(?::([0-5]\d))?\b/g
-  const seen = new Map()
-  let m
-  while ((m = regex.exec(text))) {
-    const nums = [m[1], m[2], m[3]].filter(Boolean).map(Number)
-    const seconds = nums.length === 3 ? nums[0] * 3600 + nums[1] * 60 + nums[2] : nums[0] * 60 + nums[1]
-    if (!seen.has(seconds)) seen.set(seconds, m[0])
-  }
-  return Array.from(seen, ([seconds, text]) => ({ seconds, text }))
-}
-
 export default function VideoPlayerModal() {
   const { queue, index, isOpen, minimized, setMinimized, closePlayer, goTo, applyVideoUpdate, applyVideoDeleted } = usePlayer()
   const video = isOpen && index >= 0 ? queue[index] : null
@@ -79,7 +65,8 @@ export default function VideoPlayerModal() {
 
   const [draftTitle, setDraftTitle] = useState('')
   const [editingTitle, setEditingTitle] = useState(false)
-  const [draftComment, setDraftComment] = useState('')
+  const [anchors, setAnchors] = useState([])
+  const [selectedAnchorIds, setSelectedAnchorIds] = useState(new Set())
 
   const [allCreators, setAllCreators] = useState([])
   const [draftCreators, setDraftCreators] = useState([])
@@ -107,7 +94,6 @@ export default function VideoPlayerModal() {
     if (!video) return
     setDraftTitle(video.title || '')
     setEditingTitle(false)
-    setDraftComment(video.comment || '')
     setDraftCreators(video.creators || [])
     setEditingCreators(false)
     setDraftTags(video.tags || [])
@@ -120,6 +106,9 @@ export default function VideoPlayerModal() {
     setDuration(0)
     setSavingQueue(false)
     setQueuePlaylistName('')
+    setAnchors([])
+    setSelectedAnchorIds(new Set())
+    anchorsApi.list(video.id).then(setAnchors).catch(() => {})
     api.post(`/videos/${video.id}/watched`).catch(() => {})
   }, [video?.id])
 
@@ -305,7 +294,6 @@ export default function VideoPlayerModal() {
       creatorNames: draftCreators,
       tags: draftTags,
       sourceIndex: Math.max(0, Math.min(5, draftLevel)),
-      comment: draftComment,
     })
     applyVideoUpdate(updated)
     setSaveStatus('Enregistré ✔')
@@ -317,6 +305,37 @@ export default function VideoPlayerModal() {
     if (!el) return
     el.currentTime = seconds
     el.play()
+  }
+
+  const addAnchorHere = async () => {
+    const el = videoRef.current
+    if (!el || !video) return
+    const seconds = Math.floor(el.currentTime || 0)
+    const created = await anchorsApi.create(video.id, seconds)
+    setAnchors((prev) => [...prev, created].sort((a, b) => a.seconds - b.seconds))
+  }
+
+  const toggleAnchorSelect = (id) => {
+    setSelectedAnchorIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id); else next.add(id)
+      return next
+    })
+  }
+
+  const deleteSelectedAnchors = async () => {
+    if (!video || selectedAnchorIds.size === 0) return
+    const ids = Array.from(selectedAnchorIds)
+    await anchorsApi.removeBatch(video.id, ids)
+    setAnchors((prev) => prev.filter((a) => !selectedAnchorIds.has(a.id)))
+    setSelectedAnchorIds(new Set())
+  }
+
+  const deleteAllAnchors = async () => {
+    if (!video || anchors.length === 0) return
+    await anchorsApi.removeAll(video.id)
+    setAnchors([])
+    setSelectedAnchorIds(new Set())
   }
 
   const confirmDelete = async () => {
@@ -345,7 +364,6 @@ export default function VideoPlayerModal() {
 
   const upNext = queue.slice(index + 1, index + 51)
   const filledStars = levelToFilledStars(draftLevel)
-  const commentTimestamps = parseTimestamps(draftComment)
 
   return (
     <>
@@ -418,6 +436,16 @@ export default function VideoPlayerModal() {
                         <span className="seek-preview-time">{seekPreview.text}</span>
                       </div>
                     )}
+                    {duration > 0 && anchors.map((a) => (
+                      <div
+                        key={a.id}
+                        className="anchor-tick"
+                        style={{ left: `${Math.min(100, (a.seconds / duration) * 100)}%` }}
+                        title={`Ancre à ${formatClock(a.seconds)}`}
+                        onMouseDown={(e) => e.stopPropagation()}
+                        onClick={(e) => { e.stopPropagation(); seekToTime(a.seconds) }}
+                      />
+                    ))}
                   </div>
                   <span className="yt-time">{formatClock(duration)}</span>
                 </div>
@@ -430,6 +458,7 @@ export default function VideoPlayerModal() {
                     <button className="yt-btn yt-btn-icon" title="Vidéo suivante" disabled={index >= queue.length - 1} onClick={() => handleGoTo(index + 1)}>⏭</button>
                     <button className="yt-btn yt-btn-icon" title={videoRef.current?.muted ? 'Activer le son' : 'Couper le son'} onClick={toggleMute}>{videoRef.current?.muted ? '🔇' : '🔊'}</button>
                     <input className="yt-range" type="range" min="0" max="1" step="0.01" defaultValue={1} onInput={(e) => setVolume(e.target.value)} />
+                    <button className="yt-btn yt-btn-icon" title="Ajouter une ancre à la position actuelle" onClick={addAnchorHere}>📍</button>
                   </div>
                   <div className="yt-actions-right">
                     <select className="yt-select" title="Vitesse de lecture" value={playbackRate} onChange={(e) => changeSpeed(e.target.value)}>
@@ -456,6 +485,7 @@ export default function VideoPlayerModal() {
               </div>
 
               <section className="player-info-panel">
+                <div className="player-info-main">
                 <div className="player-info-row">
                   <EditableEntityField
                     icon="👤"
@@ -536,28 +566,40 @@ export default function VideoPlayerModal() {
                     <div className="player-stat" title="Vues">👁 {video.viewCount ?? 0}</div>
                   </div>
                 </div>
+                </div>
 
-                <div className="player-comment-row">
-                  <div className="player-comment-header">
-                    <span className="entity-edit-icon" title="Commentaire">💬</span>
-                    <span className="player-comment-hint">Astuce : un temps comme 01:30 devient cliquable pour y sauter</span>
-                    <button className="player-save-btn" title="Enregistrer le commentaire" onClick={saveEdits}>💾</button>
+                <div className="player-anchors-row">
+                  <div className="player-anchors-header">
+                    <span className="entity-edit-icon" title="Ancres">📍</span>
+                    <span className="player-anchors-hint">
+                      {anchors.length > 0 ? `${anchors.length} ancre${anchors.length > 1 ? 's' : ''} enregistrée${anchors.length > 1 ? 's' : ''}` : 'Aucune ancre — cliquez sur 📍 pour en poser une'}
+                    </span>
+                    <div className="player-anchors-actions">
+                      <button
+                        type="button"
+                        className="btn-secondary player-anchors-btn"
+                        disabled={selectedAnchorIds.size === 0}
+                        onClick={deleteSelectedAnchors}
+                      >Supprimer la sélection</button>
+                      <button
+                        type="button"
+                        className="btn-secondary player-anchors-btn danger"
+                        disabled={anchors.length === 0}
+                        onClick={deleteAllAnchors}
+                      >Tout supprimer</button>
+                    </div>
                   </div>
-                  <textarea
-                    className="player-comment-textarea"
-                    placeholder="Ajouter un commentaire... (ex: 01:30 super moment)"
-                    value={draftComment}
-                    onChange={(e) => setDraftComment(e.target.value)}
-                  />
-                  {commentTimestamps.length > 0 && (
-                    <div className="comment-timestamps">
-                      {commentTimestamps.map((t) => (
-                        <button
-                          key={t.seconds}
-                          type="button"
-                          className="timestamp-chip"
-                          onClick={() => seekToTime(t.seconds)}
-                        >⏱ {t.text}</button>
+                  {anchors.length > 0 && (
+                    <div className="anchor-list">
+                      {anchors.map((a) => (
+                        <label key={a.id} className={`anchor-chip ${selectedAnchorIds.has(a.id) ? 'selected' : ''}`}>
+                          <input
+                            type="checkbox"
+                            checked={selectedAnchorIds.has(a.id)}
+                            onChange={() => toggleAnchorSelect(a.id)}
+                          />
+                          <span className="anchor-chip-time" onClick={() => seekToTime(a.seconds)}>⏱ {formatClock(a.seconds)}</span>
+                        </label>
                       ))}
                     </div>
                   )}

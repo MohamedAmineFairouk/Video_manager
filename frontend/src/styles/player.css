@@ -373,6 +373,25 @@
     white-space: nowrap;
 }
 
+.anchor-tick {
+    position: absolute;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    width: 3px;
+    height: 12px;
+    border-radius: 2px;
+    background: #facc15;
+    box-shadow: 0 0 4px rgba(250, 204, 21, 0.8);
+    cursor: pointer;
+    z-index: 2;
+    transition: height 0.12s ease, width 0.12s ease;
+}
+
+.anchor-tick:hover {
+    width: 4px;
+    height: 16px;
+}
+
 .yt-actions {
     display: flex;
     align-items: center;
@@ -439,9 +458,21 @@
 }
 
 .player-info-panel {
-    padding: 18px 20px 20px;
+    padding: 14px 20px 16px;
     background: #0f0f0f;
     border-top: 1px solid #303030;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 260px;
+    gap: 8px 20px;
+    align-items: start;
+}
+
+.player-info-main {
+    min-width: 0;
+}
+
+@media (max-width: 900px) {
+    .player-info-panel { grid-template-columns: 1fr; }
 }
 
 .player-info-row {
@@ -515,75 +546,109 @@
     box-shadow: 0 0 0 2px rgba(129, 140, 248, 0.25);
 }
 
-.player-comment-row {
-    margin-top: 12px;
-    padding-top: 12px;
-    border-top: 1px solid rgba(148, 163, 184, 0.12);
+.player-anchors-row {
+    grid-column: 2;
+    background: rgba(15, 23, 42, 0.55);
+    border: 1px solid rgba(148, 163, 184, 0.16);
+    border-radius: 12px;
+    padding: 12px 14px;
+    align-self: stretch;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
 }
 
-.player-comment-header {
+@media (max-width: 900px) {
+    .player-anchors-row {
+        grid-column: 1;
+        grid-row: auto;
+        margin-top: 4px;
+    }
+}
+
+.player-anchors-header {
     display: flex;
     align-items: center;
     gap: 8px;
-    margin-bottom: 6px;
+    flex-wrap: wrap;
+    margin-bottom: 8px;
 }
 
-.player-comment-hint {
+.player-anchors-hint {
     font-size: 11px;
     color: #64748b;
     flex: 1;
+    min-width: 60px;
 }
 
-.player-comment-textarea {
-    width: 100%;
-    min-height: 56px;
-    max-height: 140px;
-    resize: vertical;
-    background: rgba(15, 23, 42, 0.8);
-    border: 1px solid rgba(148, 163, 184, 0.25);
-    border-radius: 10px;
-    color: #e2e8f0;
-    font-size: 13px;
-    font-family: inherit;
-    padding: 8px 10px;
-    outline: none;
-    box-sizing: border-box;
-    transition: border-color 0.15s ease;
-}
-
-.player-comment-textarea:focus {
-    border-color: rgba(99, 102, 241, 0.6);
-}
-
-.player-comment-textarea::placeholder { color: #64748b; }
-
-.comment-timestamps {
+.player-anchors-actions {
     display: flex;
     flex-wrap: wrap;
     gap: 6px;
-    margin-top: 8px;
+    width: 100%;
 }
 
-.timestamp-chip {
+.player-anchors-btn {
+    font-size: 12px;
+    padding: 6px 10px;
+    margin-top: 0;
+    width: auto;
+}
+
+.player-anchors-btn.danger:not(:disabled) {
+    border-color: rgba(239, 68, 68, 0.5);
+    color: #fca5a5;
+}
+
+.player-anchors-btn.danger:not(:disabled):hover {
+    background: rgba(239, 68, 68, 0.15);
+}
+
+.anchor-list {
+    display: flex;
+    flex-wrap: wrap;
+    align-content: flex-start;
+    gap: 8px;
+    overflow-y: auto;
+    max-height: 96px;
+    padding-right: 4px;
+    scrollbar-width: thin;
+    scrollbar-color: #333 transparent;
+}
+
+.anchor-list::-webkit-scrollbar { width: 6px; }
+.anchor-list::-webkit-scrollbar-thumb { background: #333; border-radius: 6px; }
+.anchor-list::-webkit-scrollbar-thumb:hover { background: #3b82f6; }
+
+.anchor-chip {
     display: inline-flex;
     align-items: center;
-    gap: 4px;
-    background: rgba(250, 204, 21, 0.12);
-    border: 1px solid rgba(250, 204, 21, 0.4);
+    gap: 6px;
+    background: rgba(250, 204, 21, 0.1);
+    border: 1px solid rgba(250, 204, 21, 0.35);
     color: #fde68a;
     border-radius: 20px;
-    padding: 4px 12px;
+    padding: 4px 10px 4px 8px;
     font-size: 12px;
     font-weight: 600;
     cursor: pointer;
-    transition: background 0.15s ease, transform 0.15s ease;
+    transition: background 0.15s ease, border-color 0.15s ease;
     animation: badgePopIn 0.18s ease;
 }
 
-.timestamp-chip:hover {
-    background: rgba(250, 204, 21, 0.25);
-    transform: translateY(-1px);
+.anchor-chip input[type="checkbox"] {
+    cursor: pointer;
+    accent-color: #facc15;
 }
+
+.anchor-chip:hover { background: rgba(250, 204, 21, 0.2); }
+
+.anchor-chip.selected {
+    background: rgba(250, 204, 21, 0.3);
+    border-color: rgba(250, 204, 21, 0.7);
+}
+
+.anchor-chip-time { cursor: pointer; }
 
 .player-inline-field {
     display: flex;

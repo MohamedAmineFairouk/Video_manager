@@ -441,6 +441,17 @@ button, input, select {
     box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.4);
 }
 
+.video-card.selected {
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.55), 0 15px 30px rgba(29, 78, 216, 0.3);
+}
+
+.video-list-item.selected {
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.4);
+    background: rgba(59, 130, 246, 0.08);
+}
+
 .video-card {
     background: linear-gradient(145deg, #0b1225, #0f172a);
     border-radius: 14px;
@@ -673,6 +684,194 @@ button, input, select {
 .empty-state {
     color: #94a3b8;
     padding: 24px 8px;
+}
+
+.carousel-section {
+    margin-bottom: 24px;
+}
+
+.carousel-panel {
+    position: relative;
+    padding: 18px 20px 20px;
+    border-radius: 20px;
+    background:
+        radial-gradient(circle at 0% 0%, rgba(56, 189, 248, 0.14), transparent 55%),
+        radial-gradient(circle at 100% 100%, rgba(129, 140, 248, 0.12), transparent 50%),
+        linear-gradient(160deg, rgba(15, 23, 42, 0.9), rgba(10, 14, 26, 0.85));
+    border: 1px solid rgba(148, 163, 184, 0.16);
+    box-shadow: 0 18px 40px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+    overflow: hidden;
+}
+
+.carousel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 14px;
+}
+
+.carousel-title {
+    margin: 0;
+    font-size: 1.12rem;
+    font-weight: 800;
+    background: linear-gradient(90deg, #e2e8f0, #93c5fd);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    letter-spacing: 0.2px;
+}
+
+.carousel-title-icon { font-size: 1.05rem; filter: drop-shadow(0 0 6px rgba(56, 189, 248, 0.55)); }
+
+.carousel-wrap {
+    position: relative;
+    margin: 0 -20px;
+    padding: 0 20px;
+    -webkit-mask-image: linear-gradient(90deg, transparent 0, black 0);
+    mask-image: linear-gradient(90deg, transparent 0, black 0);
+}
+
+.carousel-wrap.fade-left {
+    -webkit-mask-image: linear-gradient(90deg, transparent 0, black 40px, black calc(100% - 0px), black 100%);
+    mask-image: linear-gradient(90deg, transparent 0, black 40px, black calc(100% - 0px), black 100%);
+}
+
+.carousel-wrap.fade-right {
+    -webkit-mask-image: linear-gradient(90deg, black 0, black calc(100% - 40px), transparent 100%);
+    mask-image: linear-gradient(90deg, black 0, black calc(100% - 40px), transparent 100%);
+}
+
+.carousel-wrap.fade-left.fade-right {
+    -webkit-mask-image: linear-gradient(90deg, transparent 0, black 40px, black calc(100% - 40px), transparent 100%);
+    mask-image: linear-gradient(90deg, transparent 0, black 40px, black calc(100% - 40px), transparent 100%);
+}
+
+.carousel-track {
+    display: flex;
+    gap: 16px;
+    overflow-x: auto;
+    scroll-snap-type: x proximity;
+    padding: 4px 2px 12px;
+    scrollbar-width: thin;
+    scrollbar-color: #334155 transparent;
+}
+
+.carousel-track::-webkit-scrollbar { height: 7px; }
+.carousel-track::-webkit-scrollbar-thumb { background: #334155; border-radius: 6px; }
+.carousel-track::-webkit-scrollbar-thumb:hover { background: #3b82f6; }
+
+.carousel-item {
+    position: relative;
+    flex: 0 0 auto;
+    width: 340px;
+    height: 191px;
+    border-radius: 16px;
+    overflow: hidden;
+    border: 1px solid rgba(148, 163, 184, 0.18);
+    background: #0b1220;
+    padding: 0;
+    cursor: pointer;
+    scroll-snap-align: start;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+    transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.carousel-item img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    transition: transform 0.3s ease, filter 0.3s ease;
+}
+
+.carousel-item-glow {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(180deg, transparent 55%, rgba(2, 6, 23, 0.85) 100%);
+    opacity: 0;
+    transition: opacity 0.2s ease;
+}
+
+.carousel-item-duration {
+    position: absolute;
+    left: 8px;
+    bottom: 8px;
+    background: rgba(2, 6, 23, 0.75);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    color: #e2e8f0;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 2px 7px;
+    border-radius: 6px;
+    backdrop-filter: blur(2px);
+    z-index: 1;
+}
+
+.carousel-play {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) scale(0.7);
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    background: rgba(15, 23, 42, 0.75);
+    border: 1px solid rgba(56, 189, 248, 0.7);
+    color: #e0f2fe;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+    opacity: 0;
+    transition: opacity 0.2s ease, transform 0.2s ease;
+    backdrop-filter: blur(2px);
+}
+
+.carousel-item:hover {
+    transform: translateY(-4px);
+    border-color: rgba(56, 189, 248, 0.55);
+    box-shadow: 0 10px 26px rgba(14, 165, 233, 0.25);
+}
+
+.carousel-item:hover img { transform: scale(1.06); filter: brightness(0.75); }
+.carousel-item:hover .carousel-item-glow { opacity: 1; }
+.carousel-item:hover .carousel-play { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+
+.carousel-nav {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 3;
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
+    border: 1px solid rgba(148, 163, 184, 0.35);
+    background: rgba(9, 14, 26, 0.85);
+    color: #e2e8f0;
+    font-size: 22px;
+    line-height: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: background 0.15s ease, opacity 0.15s ease, transform 0.15s ease;
+}
+
+.carousel-nav:hover { background: rgba(37, 99, 235, 0.45); transform: translateY(-50%) scale(1.08); }
+.carousel-nav.is-hidden { opacity: 0; pointer-events: none; }
+.carousel-nav-left { left: 4px; }
+.carousel-nav-right { right: 4px; }
+
+@media (max-width: 900px) {
+    .carousel-item { width: 260px; height: 146px; }
+}
+
+@media (max-width: 640px) {
+    .carousel-item { width: 220px; height: 124px; }
+    .carousel-nav { display: none; }
 }
 
 .list-controls {
@@ -1198,6 +1397,75 @@ button, input, select {
 
 .level-stars .star {
     font-size: 15px;
+}
+
+.bulk-toolbar {
+    position: fixed;
+    left: 50%;
+    top: 16px;
+    transform: translateX(-50%);
+    z-index: 500;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px;
+    background: rgba(10, 14, 26, 0.92);
+    border: 1px solid rgba(59, 130, 246, 0.4);
+    border-radius: 14px;
+    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(8px);
+    animation: bulkToolbarIn 0.18s ease-out;
+}
+
+@keyframes bulkToolbarIn {
+    from { opacity: 0; transform: translateX(-50%) translateY(-10px); }
+    to { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+
+.bulk-toolbar-count {
+    font-size: 13px;
+    font-weight: 700;
+    color: #93c5fd;
+    padding: 0 4px;
+    white-space: nowrap;
+}
+
+.bulk-toolbar-btn {
+    background: rgba(59, 130, 246, 0.16);
+    color: #e2e8f0;
+    border: 1px solid rgba(59, 130, 246, 0.4);
+    border-radius: 9px;
+    padding: 7px 12px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background 0.15s ease, transform 0.15s ease;
+}
+
+.bulk-toolbar-btn:hover { background: rgba(59, 130, 246, 0.32); transform: translateY(-1px); }
+
+.bulk-toolbar-btn.subtle {
+    background: transparent;
+    border-color: rgba(148, 163, 184, 0.35);
+    color: #94a3b8;
+    padding: 7px 10px;
+}
+
+.bulk-toolbar-btn.subtle:hover { background: rgba(239, 68, 68, 0.18); border-color: rgba(239, 68, 68, 0.5); color: #fca5a5; }
+
+@media (max-width: 640px) {
+    .bulk-toolbar { left: 12px; right: 12px; transform: none; top: 12px; flex-wrap: wrap; justify-content: center; }
+    @keyframes bulkToolbarIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+}
+
+.marquee-select-box {
+    position: fixed;
+    z-index: 9998;
+    background: rgba(59, 130, 246, 0.16);
+    border: 1px solid rgba(59, 130, 246, 0.7);
+    border-radius: 4px;
+    pointer-events: none;
 }
 
 .modal-overlay {

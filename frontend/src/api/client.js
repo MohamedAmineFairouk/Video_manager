@@ -32,3 +32,11 @@ export function thumbnailUrl(videoId) {
 export function storyboardUrl(videoId) {
   return `${BASE}/videos/storyboard?id=${videoId}`
 }
+
+export const anchorsApi = {
+  list: (videoId) => api.get(`/videos/${videoId}/anchors`),
+  create: (videoId, seconds) => api.post(`/videos/${videoId}/anchors?seconds=${Math.floor(seconds)}`),
+  remove: (videoId, anchorId) => api.del(`/videos/${videoId}/anchors/${anchorId}`),
+  removeBatch: (videoId, ids) => api.post(`/videos/${videoId}/anchors/delete-batch`, ids),
+  removeAll: (videoId) => api.del(`/videos/${videoId}/anchors`),
+}
