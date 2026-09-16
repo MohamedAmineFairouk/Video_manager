@@ -254,6 +254,11 @@ export default function VideoPlayerModal() {
     applyVideoUpdate({ ...video, favorite: !video.favorite })
   }
 
+  const toggleArchived = async () => {
+    await api.get(`/videos/archive/toggle?id=${video.id}`)
+    applyVideoUpdate({ ...video, archived: !video.archived })
+  }
+
   const addCreatorByName = (name) => {
     if (!name || draftCreators.includes(name)) return
     setDraftCreators((prev) => [...prev, name])
@@ -472,6 +477,7 @@ export default function VideoPlayerModal() {
                     <button className="yt-btn yt-btn-icon hide-in-fullscreen" title="Réduire" onClick={toggleMinimize}>🗕</button>
                     <button className="yt-btn yt-btn-icon hide-in-fullscreen" title="Mode théâtre" onClick={() => setTheater((t) => !t)}>▭</button>
                     <button className={`yt-btn yt-btn-icon ${video.favorite ? 'active' : ''}`} title="Favori" onClick={toggleFavorite}>♥</button>
+                    <button className={`yt-btn yt-btn-icon ${video.archived ? 'active' : ''}`} title={video.archived ? 'Désarchiver' : 'Archiver'} onClick={toggleArchived}>📦</button>
                     <button ref={playlistBtnRef} className="yt-btn yt-btn-icon hide-in-fullscreen" title="Ajouter à une playlist" onClick={() => setShowPlaylistPopover((s) => !s)}>➕</button>
                     {showPlaylistPopover && (
                       <AddToPlaylistPopover videoId={video.id} anchorRef={playlistBtnRef} onClose={() => setShowPlaylistPopover(false)} />
@@ -571,9 +577,11 @@ export default function VideoPlayerModal() {
                 <div className="player-anchors-row">
                   <div className="player-anchors-header">
                     <span className="entity-edit-icon" title="Ancres">📍</span>
-                    <span className="player-anchors-hint">
-                      {anchors.length > 0 ? `${anchors.length} ancre${anchors.length > 1 ? 's' : ''} enregistrée${anchors.length > 1 ? 's' : ''}` : 'Aucune ancre — cliquez sur 📍 pour en poser une'}
-                    </span>
+                    {anchors.length > 0 && (
+                      <span className="player-anchors-hint">
+                        {`${anchors.length} ancre${anchors.length > 1 ? 's' : ''} enregistrée${anchors.length > 1 ? 's' : ''}`}
+                      </span>
+                    )}
                     <div className="player-anchors-actions">
                       <button
                         type="button"

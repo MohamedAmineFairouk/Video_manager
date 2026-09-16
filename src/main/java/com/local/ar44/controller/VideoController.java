@@ -565,6 +565,19 @@ public class VideoController {
         return "OK";
     }
 
+    @GetMapping("/archive/toggle")
+    public String toggleArchived(@RequestParam Long id) {
+        Video v = videoRepository.findById(id).orElseThrow();
+
+        boolean nowArchived = v.getArchived() == null || !v.getArchived();
+        v.setArchived(nowArchived);
+        v.setArchivedAt(nowArchived ? LocalDateTime.now() : null);
+
+        videoRepository.save(v);
+
+        return "OK";
+    }
+
     @PostMapping("/{id}/watched")
     public ResponseEntity<Void> markWatched(@PathVariable Long id) {
         Video video = videoRepository.findById(id)

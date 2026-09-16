@@ -13,6 +13,22 @@
     --blue-hover: #2563eb;
     --accent: #0ea5e9;
     --danger: #ef4444;
+    --ease-smooth: cubic-bezier(0.22, 1, 0.36, 1);
+    --ease-press: cubic-bezier(0.4, 0, 0.6, 1);
+    --shadow-elevated: 0 24px 48px -12px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(59, 130, 246, 0.35);
+}
+
+/* Global press feedback fallback: any plain button gets a quick, consistent
+   "squish" on click so interactions feel deliberate rather than static.
+   Lower specificity than component-level `.foo:active` rules below, which
+   still win when they choreograph their own press state (color/shadow/scale). */
+button {
+    transition: transform 0.12s var(--ease-press);
+}
+
+button:active {
+    transform: scale(0.93);
+    transition-duration: 0.08s;
 }
 
 html, body, #root {
@@ -457,14 +473,22 @@ button, input, select {
     border-radius: 14px;
     overflow: hidden;
     border: 1px solid rgba(56, 189, 248, 0.25);
-    transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+    transition: transform 0.28s var(--ease-smooth), box-shadow 0.28s var(--ease-smooth), border-color 0.28s var(--ease-smooth);
+    transform-origin: center center;
     position: relative;
+    will-change: transform;
 }
 
 .video-card:hover {
-    transform: translateY(-3px) scale(1.01);
-    box-shadow: 0 15px 30px rgba(29, 78, 216, 0.38);
-    border-color: rgba(59, 130, 246, 0.7);
+    transform: scale(1.045);
+    box-shadow: var(--shadow-elevated);
+    border-color: rgba(59, 130, 246, 0.8);
+    z-index: 5;
+}
+
+.video-card:active {
+    transform: scale(1.02);
+    transition-duration: 0.1s;
 }
 
 .video-thumb-wrap {
@@ -776,7 +800,7 @@ button, input, select {
     cursor: pointer;
     scroll-snap-align: start;
     box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
-    transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+    transition: transform 0.25s var(--ease-smooth), box-shadow 0.25s var(--ease-smooth), border-color 0.25s var(--ease-smooth);
 }
 
 .carousel-item img {
@@ -831,10 +855,13 @@ button, input, select {
 }
 
 .carousel-item:hover {
-    transform: translateY(-4px);
-    border-color: rgba(56, 189, 248, 0.55);
-    box-shadow: 0 10px 26px rgba(14, 165, 233, 0.25);
+    transform: translateY(-6px) scale(1.05);
+    border-color: rgba(56, 189, 248, 0.6);
+    box-shadow: var(--shadow-elevated);
+    z-index: 3;
 }
+
+.carousel-item:active { transform: translateY(-2px) scale(1.01); transition-duration: 0.1s; }
 
 .carousel-item:hover img { transform: scale(1.06); filter: brightness(0.75); }
 .carousel-item:hover .carousel-item-glow { opacity: 1; }
@@ -1127,6 +1154,25 @@ button, input, select {
 }
 
 .filter-favorite-toggle input { display: none; }
+
+.filter-favorite-toggle:active { transform: scale(0.93); }
+
+.filter-archived-toggle {
+    margin-left: 8px;
+    padding: 3px 8px;
+    font-size: 13px;
+}
+
+.filter-archived-toggle.active {
+    border-color: rgba(59, 130, 246, 0.6);
+    background: rgba(59, 130, 246, 0.15);
+    color: #93c5fd;
+}
+
+.archived-badge {
+    font-size: 12px;
+    filter: grayscale(0.15);
+}
 
 .filter-favorite-reset-group {
     display: flex;

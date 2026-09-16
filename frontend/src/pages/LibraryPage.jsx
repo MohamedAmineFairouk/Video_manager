@@ -25,6 +25,7 @@ export default function LibraryPage() {
   const [tagFilter, setTagFilter] = useState(new Set())
   const [levelFilter, setLevelFilter] = useState(null) // 1..5, inverted scale like the star UI
   const [favoriteOnly, setFavoriteOnly] = useState(false)
+  const [showArchived, setShowArchived] = useState(false)
   const [search, setSearch] = useState('')
 
   const [page, setPage] = useState(1)
@@ -49,7 +50,7 @@ export default function LibraryPage() {
         api.get('/videos/tags'),
       ])
       setVideos(videoList)
-      setCarouselVideos(pickRandom(videoList, 18))
+      setCarouselVideos(pickRandom(videoList.filter((v) => !v.archived), 18))
       setCreators(creatorList)
       setTags(tagList)
       setStatus('')
@@ -74,6 +75,7 @@ export default function LibraryPage() {
     }
     if (levelFilter) list = list.filter((v) => String(v.sourceIndex) === String(levelFilter))
     if (favoriteOnly) list = list.filter((v) => v.favorite === true)
+    if (!showArchived) list = list.filter((v) => !v.archived)
 
     const query = search.trim().toLowerCase()
     if (query) {
@@ -97,14 +99,14 @@ export default function LibraryPage() {
       default: break
     }
     return sorted
-  }, [videos, creatorFilter, tagFilter, levelFilter, favoriteOnly, search, sort])
+  }, [videos, creatorFilter, tagFilter, levelFilter, favoriteOnly, showArchived, search, sort])
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize))
   const clampedPage = Math.min(page, totalPages)
   const pageItems = filtered.slice((clampedPage - 1) * pageSize, clampedPage * pageSize)
 
   const resetFilters = () => {
-    setCreatorFilter(''); setTagFilter(new Set()); setLevelFilter(null); setFavoriteOnly(false); setSort('level-desc'); setPage(1)
+    setCreatorFilter(''); setTagFilter(new Set()); setLevelFilter(null); setFavoriteOnly(false); setShowArchived(false); setSort('level-desc'); setPage(1)
   }
 
   const toggleTagFilter = (tag) => {
@@ -210,6 +212,10 @@ export default function LibraryPage() {
                   >★</span>
                 )
               })}
+              <label className={`filter-favorite-toggle filter-archived-toggle ${showArchived ? 'active' : ''}`} title="Afficher les vidéos archivées">
+                <input type="checkbox" checked={showArchived} onChange={(e) => { setShowArchived(e.target.checked); setPage(1) }} />
+                📦
+              </label>
             </div>
             <div className="filter-favorite-reset-group">
               <label className={`filter-favorite-toggle ${favoriteOnly ? 'active' : ''}`}>

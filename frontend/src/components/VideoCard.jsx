@@ -37,6 +37,11 @@ function TagsText({ tags }) {
   return <span className="tag-text">{tags.join(', ')}</span>
 }
 
+function ArchivedBadge({ archived }) {
+  if (!archived) return null
+  return <span className="archived-badge" title="Vidéo archivée">📦</span>
+}
+
 function ViewCount({ count }) {
   return <span className="view-count" title="Nombre de vues">👁 {count ?? 0}</span>
 }
@@ -193,6 +198,7 @@ const VideoCard = forwardRef(function VideoCard({
             <LevelStars level={video.sourceIndex} />
             <DurationText durationMs={video.durationMs} />
             <ViewCount count={video.viewCount} />
+            <ArchivedBadge archived={video.archived} />
           </div>
         </div>
         <div className="video-list-actions">
@@ -271,6 +277,7 @@ const VideoCard = forwardRef(function VideoCard({
           <TagsText tags={video.tags} />
           <LevelStars level={video.sourceIndex} />
           <ViewCount count={video.viewCount} />
+          <ArchivedBadge archived={video.archived} />
         </div>
       </div>
       <div className="video-duration" style={topRightAction ? { top: 32 } : undefined}>{formatDuration(video.durationMs)}</div>
