@@ -31,6 +31,7 @@ import re
 import shutil
 import subprocess
 import sys
+import uuid
 from pathlib import Path
 
 import psycopg2
@@ -221,12 +222,16 @@ def process_video(path: Path, conn, existing_filenames: set, zar_counter: list) 
     filename = path.name
     print(f"-> {filename}")
 
-    file_stem = base_name_of(filename)
-    obfuscated_name = f"{file_stem}.{VIDEO_EXTENSION}"
-
-    if obfuscated_name in existing_filenames:
-        print(f"   [IGNORÉ] {obfuscated_name} existe déjà en base")
-        return False
+    # Nom interne totalement indépendant du nom du fichier source. Deux vidéos
+    # différentes déposées sous le même nom (téléchargements génériques du
+    # type "video.mp4", très courant) ne doivent jamais se retrouver avec le
+    # même fichier .arv/.ari sur disque : ça écraserait silencieusement une
+    # vidéo déjà en bibliothèque. Le nom interne est donc un UUID aléatoire,
+    # jamais dérivé du nom d'origine.
+    internal_stem = uuid.uuid4().hex
+    while f"{internal_stem}.{VIDEO_EXTENSION}" in existing_filenames:
+        internal_stem = uuid.uuid4().hex
+    obfuscated_name = f"{internal_stem}.{VIDEO_EXTENSION}"
 
     # Pas de créateur à l'ingestion (assigné plus tard dans l'appli) : le
     # titre suit donc la convention ZAr_xxx, comme les vidéos sans créateur
@@ -236,13 +241,13 @@ def process_video(path: Path, conn, existing_filenames: set, zar_counter: list) 
     duration_ms = probe_duration_ms(path)
     print(f"   durée: {duration_ms} ms" if duration_ms else "   durée: inconnue (ffprobe a échoué)")
 
-    tmp_thumb = path.parent / f".tmp_thumb_{file_stem}.jpg"
+    tmp_thumb = path.parent / f".tmp_thumb_{internal_stem}.jpg"
     if not generate_thumbnail(path, tmp_thumb, duration_ms):
         print("   [ERREUR] génération de la miniature échouée — vidéo ignorée")
         tmp_thumb.unlink(missing_ok=True)
         return False
 
-    tmp_storyboard = path.parent / f".tmp_storyboard_{file_stem}.jpg"
+    tmp_storyboard = path.parent / f".tmp_storyboard_{internal_stem}.jpg"
     storyboard_ok = bool(duration_ms) and generate_storyboard(path, tmp_storyboard, duration_ms)
     if duration_ms and not storyboard_ok:
         print("   [WARN] génération du storyboard échouée (on continue sans)")
