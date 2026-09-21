@@ -2,15 +2,6 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { thumbnailUrl } from '../api/client'
 import { formatDuration } from '../utils'
 
-export function pickRandom(list, count) {
-  const copy = [...list]
-  for (let i = copy.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1))
-    ;[copy[i], copy[j]] = [copy[j], copy[i]]
-  }
-  return copy.slice(0, count)
-}
-
 export default function VideoCarousel({ videos, onOpen }) {
   const trackRef = useRef(null)
   const [canLeft, setCanLeft] = useState(false)

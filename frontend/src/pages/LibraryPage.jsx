@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import Sidebar from '../components/Sidebar'
 import VideoGrid from '../components/VideoGrid'
-import VideoCarousel, { pickRandom } from '../components/VideoCarousel'
+import VideoCarousel from '../components/VideoCarousel'
 import ViewToggle from '../components/ViewToggle'
 import Pagination from '../components/Pagination'
 import AddToPlaylistPopover from '../components/AddToPlaylistPopover'
@@ -44,13 +44,14 @@ export default function LibraryPage() {
     setLoading(true)
     setStatus('Chargement des vidéos...')
     try {
-      const [videoList, creatorList, tagList] = await Promise.all([
+      const [videoList, creatorList, tagList, discoverList] = await Promise.all([
         api.get('/videos'),
         api.get('/videos/creators'),
         api.get('/videos/tags'),
+        api.get('/videos/discover?limit=18'),
       ])
       setVideos(videoList)
-      setCarouselVideos(pickRandom(videoList.filter((v) => !v.archived), 18))
+      setCarouselVideos(discoverList)
       setCreators(creatorList)
       setTags(tagList)
       setStatus('')

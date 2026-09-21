@@ -479,17 +479,10 @@
     display: flex;
     align-items: center;
     gap: 10px;
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    overflow-y: hidden;
+    flex-wrap: wrap;
+    row-gap: 8px;
     padding-bottom: 6px;
-    scrollbar-width: thin;
-    scrollbar-color: #333 transparent;
 }
-
-.player-info-row::-webkit-scrollbar { height: 6px; }
-.player-info-row::-webkit-scrollbar-thumb { background: #333; border-radius: 6px; }
-.player-info-row::-webkit-scrollbar-thumb:hover { background: #3b82f6; }
 
 .player-info-row > * { flex-shrink: 0; }
 
@@ -604,13 +597,16 @@
     background: rgba(239, 68, 68, 0.15);
 }
 
+/* Une ancre par ligne, 4 lignes visibles au maximum : au-delà, ça défile
+   verticalement (le nombre de lignes visibles ne dépend donc plus de la
+   largeur disponible, contrairement à l'ancien affichage en badges qui
+   pouvaient s'enrouler sur plusieurs colonnes). */
 .anchor-list {
     display: flex;
-    flex-wrap: wrap;
-    align-content: flex-start;
-    gap: 8px;
+    flex-direction: column;
+    gap: 6px;
     overflow-y: auto;
-    max-height: 96px;
+    max-height: calc(4 * 30px + 3 * 6px);
     padding-right: 4px;
     scrollbar-width: thin;
     scrollbar-color: #333 transparent;
@@ -621,14 +617,18 @@
 .anchor-list::-webkit-scrollbar-thumb:hover { background: #3b82f6; }
 
 .anchor-chip {
-    display: inline-flex;
+    display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 8px;
+    width: 100%;
+    box-sizing: border-box;
+    height: 30px;
+    flex: none;
     background: rgba(250, 204, 21, 0.1);
     border: 1px solid rgba(250, 204, 21, 0.35);
     color: #fde68a;
-    border-radius: 20px;
-    padding: 4px 10px 4px 8px;
+    border-radius: 8px;
+    padding: 4px 10px;
     font-size: 12px;
     font-weight: 600;
     cursor: pointer;
@@ -663,6 +663,9 @@
 }
 
 .player-inline-field.editing {
+    flex-wrap: wrap;
+    row-gap: 6px;
+    max-width: 100%;
     border-color: rgba(99, 102, 241, 0.45);
     background: rgba(30, 27, 75, 0.5);
     animation: fieldExpand 0.22s ease;
@@ -783,10 +786,12 @@
     color: #64748b;
 }
 
+/* 4 options visibles au maximum (comme la liste des ancres) : au-delà, ça
+   défile verticalement dans le menu. */
 .entity-picker-dropdown {
     position: fixed;
     max-width: 320px;
-    max-height: 240px;
+    max-height: calc(4 * 30px + 2 * 6px);
     overflow-y: auto;
     background: #1e293b;
     border: 1px solid rgba(148, 163, 184, 0.35);

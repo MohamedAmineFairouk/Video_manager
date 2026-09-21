@@ -7,8 +7,11 @@ import com.local.ar44.dto.Tag;
 import com.local.ar44.dto.Video;
 import com.local.ar44.dto.VideoResponse;
 import com.local.ar44.repo.AppConfigRepository;
+import com.local.ar44.repo.PlaylistItemRepository;
 import com.local.ar44.repo.TagRepository;
+import com.local.ar44.repo.VideoAnchorRepository;
 import com.local.ar44.repo.VideoRepository;
+import com.local.ar44.repo.VideoWatchLogRepository;
 import com.local.ar44.service.StatsService;
 import com.local.ar44.service.ThumbnailStorageService;
 import com.local.ar44.service.VideoResponseMapper;
@@ -46,6 +49,9 @@ public class VideoController {
     private final com.local.ar44.service.StoryboardService storyboardService;
     private final com.local.ar44.service.FileObfuscationService fileObfuscationService;
     private final com.local.ar44.service.ObfuscationMigrationService obfuscationMigrationService;
+    private final VideoAnchorRepository videoAnchorRepository;
+    private final PlaylistItemRepository playlistItemRepository;
+    private final VideoWatchLogRepository videoWatchLogRepository;
 
     public VideoController(VideoRepository videoRepository,
                            AppConfigRepository appConfigRepository,
@@ -57,7 +63,10 @@ public class VideoController {
                            com.local.ar44.service.VideoImportService videoImportService,
                            com.local.ar44.service.StoryboardService storyboardService,
                            com.local.ar44.service.FileObfuscationService fileObfuscationService,
-                           com.local.ar44.service.ObfuscationMigrationService obfuscationMigrationService) {
+                           com.local.ar44.service.ObfuscationMigrationService obfuscationMigrationService,
+                           VideoAnchorRepository videoAnchorRepository,
+                           PlaylistItemRepository playlistItemRepository,
+                           VideoWatchLogRepository videoWatchLogRepository) {
         this.videoRepository = videoRepository;
         this.appConfigRepository = appConfigRepository;
         this.tagRepository = tagRepository;
@@ -69,6 +78,9 @@ public class VideoController {
         this.storyboardService = storyboardService;
         this.fileObfuscationService = fileObfuscationService;
         this.obfuscationMigrationService = obfuscationMigrationService;
+        this.videoAnchorRepository = videoAnchorRepository;
+        this.playlistItemRepository = playlistItemRepository;
+        this.videoWatchLogRepository = videoWatchLogRepository;
     }
 
     private Tag findOrCreateTag(String name) {
@@ -219,6 +231,33 @@ public class VideoController {
     public List<VideoResponse> getByCreator(@RequestParam String creator, HttpSession session) {
         // TODO: Adapter la recherche par creator (ManyToMany)
         return List.of();
+    }
+
+    // ========================
+    // ✨ DÉCOUVERTE ALÉATOIRE
+    // ========================
+    // Critères : ni archivée, ni déjà dans une playlist, un "CI" (sourceIndex) parmi les 3
+    // meilleurs (1 = le plus élevé), puis priorité aux moins vues. Le tirage se fait ensuite au
+    // hasard dans ce sous-ensemble déjà trié, pour garder un effet "découverte" tout en
+    // respectant ces critères.
+    @GetMapping("/discover")
+    public List<VideoResponse> discover(@RequestParam(defaultValue = "18") int limit, HttpSession session) {
+        resolveHost(session);
+        Set<Long> inPlaylist = new HashSet<>(playlistItemRepository.findDistinctVideoIds());
+
+        List<VideoResponse> ranked = videoRepository.findAll().stream()
+                .filter(v -> !Boolean.TRUE.equals(v.getArchived()))
+                .filter(v -> !inPlaylist.contains(v.getId()))
+                .filter(v -> v.getSourceIndex() != null && v.getSourceIndex() >= 1 && v.getSourceIndex() <= 3)
+                .map(videoResponseMapper::toResponse)
+                .sorted(Comparator.comparing(VideoResponse::getSourceIndex)
+                        .thenComparing(VideoResponse::getViewCount))
+                .toList();
+
+        int poolSize = Math.min(ranked.size(), Math.max(limit * 3, 40));
+        List<VideoResponse> pool = new ArrayList<>(ranked.subList(0, poolSize));
+        Collections.shuffle(pool);
+        return pool.stream().limit(limit).toList();
     }
 
     @GetMapping("/search")
@@ -412,6 +451,56 @@ public class VideoController {
     // ========================
     // ❌ DELETE VIDEO
     // ========================
+    private static final String TRASH_DIR_NAME = "a_supprimer";
+
+    // Dossier "à supprimer" à côté du jar (run.bat s'y place avant de lancer le jar, donc
+    // user.dir pointe déjà vers ce répertoire). Les fichiers y sont déplacés plutôt que
+    // supprimés définitivement : c'est à l'utilisateur de les nettoyer manuellement ensuite.
+    private Path resolveTrashDir() throws java.io.IOException {
+        Path trashDir = Paths.get(System.getProperty("user.dir"), TRASH_DIR_NAME);
+        Files.createDirectories(trashDir);
+        return trashDir;
+    }
+
+    // Déplace un fichier existant vers la corbeille en préfixant son nom par l'id de la vidéo
+    // (évite toute collision et permet à l'utilisateur de retrouver facilement à quelle vidéo
+    // appartenait chaque fichier). Ne touche à aucun autre fichier du dossier.
+    //
+    // Réessaie plusieurs fois : sous Windows, le fichier vidéo peut encore être verrouillé
+    // juste après l'arrêt de la lecture (le flux /api/videos/file vient de se fermer côté
+    // client mais le handle côté serveur n'est pas encore totalement relâché).
+    private void moveToTrash(Path source, Path trashDir, Long videoId, String label) {
+        if (source == null) return;
+        if (!Files.exists(source) || !Files.isRegularFile(source)) {
+            log.warn("[DELETE] {} introuvable, rien à déplacer: {}", label, source);
+            return;
+        }
+        Path target = trashDir.resolve(videoId + "_" + source.getFileName());
+        int maxAttempts = 5;
+        for (int attempt = 1; attempt <= maxAttempts; attempt++) {
+            try {
+                Files.move(source, target, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                log.info("[DELETE] {} déplacé vers la corbeille: {}", label, target);
+                return;
+            } catch (java.nio.file.FileSystemException e) {
+                if (attempt == maxAttempts) {
+                    log.error("[DELETE] Erreur déplacement {} vers la corbeille (fichier verrouillé après {} essais): {}", label, attempt, e.getMessage());
+                    return;
+                }
+                try {
+                    Thread.sleep(400);
+                } catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
+                    return;
+                }
+            } catch (Exception e) {
+                log.error("[DELETE] Erreur déplacement {} vers la corbeille: {}", label, e.getMessage());
+                return;
+            }
+        }
+    }
+
+    @Transactional
     @GetMapping("/delete")
     public String deleteVideo(@RequestParam Long id) {
         Optional<Video> videoOpt = videoRepository.findById(id);
@@ -420,43 +509,43 @@ public class VideoController {
         }
         Video video = videoOpt.get();
         String fileName = video.getFileName();
-        // Détection du répertoire courant (là où se trouve le JAR)
-        String currentDir = System.getProperty("user.dir");
-        boolean isLinux = System.getProperty("os.name").toLowerCase().contains("linux");
-        Path baseDir;
-        if (isLinux) {
-            baseDir = Paths.get(currentDir);
-        } else {
-            baseDir = Paths.get(videosDir);
-        }
-        // Suppression du fichier vidéo (dans le même dossier que le JAR si Linux)
-        if (fileName != null && !fileName.isBlank()) {
-            Path videoPath = baseDir.resolve(fileName).toAbsolutePath();
-            try {
-                if (Files.exists(videoPath) && Files.isRegularFile(videoPath)) {
-                    Files.delete(videoPath);
-                    log.info("[DELETE] Fichier vidéo supprimé: {}", videoPath);
-                } else {
-                    log.warn("[DELETE] Fichier vidéo introuvable ou non régulier: {}", videoPath);
-                }
-            } catch (Exception e) {
-                log.error("[DELETE] Erreur suppression fichier vidéo: {}", e.getMessage());
-            }
-        }
-        // Suppression du thumbnail (dans le même dossier que le JAR si Linux)
-        try {
-            String thumbName = thumbnailStorageService.toThumbnailName(fileName);
-            Path thumbPath = baseDir.resolve(thumbName).toAbsolutePath();
-            if (Files.exists(thumbPath) && Files.isRegularFile(thumbPath)) {
-                Files.delete(thumbPath);
-                log.info("[DELETE] Thumbnail supprimé: {}", thumbPath);
-            } else {
-                log.warn("[DELETE] Thumbnail introuvable ou non régulier: {}", thumbPath);
-            }
-        } catch (Exception e) {
-            log.error("[DELETE] Erreur suppression thumbnail: {}", e.getMessage());
-        }
+
+        // Nettoyage des éléments liés en base avant la vidéo elle-même : sans ça, la suppression
+        // échouait (contrainte de clé étrangère) dès qu'une vidéo avait au moins une ancre ou
+        // appartenait à une playlist, ce qui laissait le fichier déjà supprimé du disque mais la
+        // ligne "video" bloquée en base (vidéo cassée dans l'appli).
+        videoAnchorRepository.deleteByVideoId(id);
+        playlistItemRepository.deleteByVideoId(id);
+        videoWatchLogRepository.deleteByVideoId(id);
         videoRepository.deleteById(id);
+
+        // Déplacement des fichiers (vidéo, thumbnail, storyboard) vers la corbeille plutôt que
+        // suppression définitive. Erreurs de fichiers loggées mais non bloquantes : la vidéo est
+        // déjà supprimée en base à ce stade.
+        try {
+            Path trashDir = resolveTrashDir();
+
+            if (fileName != null && !fileName.isBlank()) {
+                // Détection du répertoire courant (là où se trouve le JAR)
+                String currentDir = System.getProperty("user.dir");
+                boolean isLinux = System.getProperty("os.name").toLowerCase().contains("linux");
+                Path baseDir = isLinux ? Paths.get(currentDir) : Paths.get(videosDir);
+                Path videoPath = baseDir.resolve(fileName).toAbsolutePath();
+                moveToTrash(videoPath, trashDir, id, "Fichier vidéo");
+
+                // Le thumbnail vit dans son propre dossier configuré (app.thumbnails.dir), pas
+                // dans celui des vidéos : c'est pour ça qu'il n'était en réalité jamais supprimé
+                // auparavant (mauvais chemin recherché).
+                Path thumbPath = thumbnailStorageService.getThumbPath(fileName);
+                moveToTrash(thumbPath, trashDir, id, "Thumbnail");
+            }
+
+            Path storyboardPath = thumbnailStorageService.getStoryboardPath(id);
+            moveToTrash(storyboardPath, trashDir, id, "Storyboard");
+        } catch (Exception e) {
+            log.error("[DELETE] Erreur lors du déplacement des fichiers vers la corbeille: {}", e.getMessage());
+        }
+
         return "Vidéo supprimée : " + id;
     }
 
@@ -576,6 +665,21 @@ public class VideoController {
         videoRepository.save(v);
 
         return "OK";
+    }
+
+    @Transactional
+    @PostMapping("/archive/unarchive-all")
+    public ResponseEntity<Map<String, Object>> unarchiveAll() {
+        List<Video> archived = videoRepository.findByArchivedTrue();
+        for (Video v : archived) {
+            v.setArchived(false);
+            v.setArchivedAt(null);
+        }
+        videoRepository.saveAll(archived);
+
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("videosUpdated", archived.size());
+        return ResponseEntity.ok(result);
     }
 
     @PostMapping("/{id}/watched")

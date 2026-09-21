@@ -38,5 +38,11 @@ build/
 /_backup_originals/
 /ar44.jar
 /ar44.log
+/ar44.log.*
 /backend-dev.log
 /frontend-dev.log
+/backend-run.log
+/frontend-run.log
+# Fichiers vidéo/thumbnail/storyboard déplacés ici par la suppression (voir VideoController) :
+# jamais du code source, à nettoyer manuellement par l'utilisateur.
+/a_supprimer/

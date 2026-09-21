@@ -33,6 +33,8 @@ export default function StatsPage() {
   const [deleteTarget, setDeleteTarget] = useState(null) // { type: 'creator'|'tag', id, name }
   const [clearTagsOpen, setClearTagsOpen] = useState(false)
   const [clearTagsStatus, setClearTagsStatus] = useState('')
+  const [unarchiveOpen, setUnarchiveOpen] = useState(false)
+  const [unarchiveStatus, setUnarchiveStatus] = useState('')
 
   const [pinChangeOpen, setPinChangeOpen] = useState(false)
   const [pinChangeStep, setPinChangeStep] = useState('current') // 'current' | 'new' | 'confirm'
@@ -132,6 +134,13 @@ export default function StatsPage() {
     setTimeout(() => setClearTagsStatus(''), 3000)
   }
 
+  const confirmUnarchiveAll = async () => {
+    const result = await api.post('/videos/archive/unarchive-all')
+    setUnarchiveStatus(`${result.videosUpdated} vidéo(s) désarchivée(s) ✔`)
+    setUnarchiveOpen(false)
+    setTimeout(() => setUnarchiveStatus(''), 3000)
+  }
+
   return (
     <div className="app">
       <Sidebar />
@@ -145,8 +154,15 @@ export default function StatsPage() {
             <button className="btn-secondary danger-button" style={{ width: 'auto' }} onClick={() => setResetOpen((o) => !o)}>
               Réinitialiser les compteurs
             </button>
+            <button className="btn-secondary" style={{ width: 'auto' }} onClick={() => setUnarchiveOpen(true)}>
+              Désarchiver toutes les vidéos
+            </button>
           </div>
         </div>
+
+        {unarchiveStatus && (
+          <div className="status" style={{ color: '#4ade80', marginBottom: 12 }}>{unarchiveStatus}</div>
+        )}
 
         {pinChangeOpen && (
           <div className="host-box" style={{ maxWidth: 420, marginBottom: 20 }}>
@@ -318,6 +334,13 @@ export default function StatsPage() {
         text="Retirer tous les tags de toutes les vidéos ? La liste de tags ci-dessous sera conservée, seules les associations avec les vidéos seront supprimées."
         onConfirm={confirmClearTagAssignments}
         onCancel={() => setClearTagsOpen(false)}
+      />
+
+      <ConfirmModal
+        open={unarchiveOpen}
+        text="Désarchiver toutes les vidéos actuellement archivées ? Elles redeviendront visibles dans la bibliothèque."
+        onConfirm={confirmUnarchiveAll}
+        onCancel={() => setUnarchiveOpen(false)}
       />
     </div>
   )

@@ -77,6 +77,8 @@ export default function VideoPlayerModal() {
   const [draftLevel, setDraftLevel] = useState(1)
   const [showPlaylistPopover, setShowPlaylistPopover] = useState(false)
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false)
+  const [deleteError, setDeleteError] = useState('')
+  const [deleting, setDeleting] = useState(false)
   const [saveStatus, setSaveStatus] = useState('')
   const [isFullscreenActive, setIsFullscreenActive] = useState(false)
   const [controlsVisible, setControlsVisible] = useState(true)
@@ -106,6 +108,8 @@ export default function VideoPlayerModal() {
     setDuration(0)
     setSavingQueue(false)
     setQueuePlaylistName('')
+    setConfirmDeleteOpen(false)
+    setDeleteError('')
     setAnchors([])
     setSelectedAnchorIds(new Set())
     anchorsApi.list(video.id).then(setAnchors).catch(() => {})
@@ -344,9 +348,27 @@ export default function VideoPlayerModal() {
   }
 
   const confirmDelete = async () => {
-    await api.get(`/videos/delete?id=${video.id}`)
-    setConfirmDeleteOpen(false)
-    applyVideoDeleted(video.id)
+    setDeleting(true)
+    setDeleteError('')
+    try {
+      // Coupe le flux vidéo avant de supprimer : tant que le <video> est en train de streamer
+      // le fichier, le serveur (Windows) garde un handle dessus et ne peut pas le déplacer
+      // vers la corbeille (fichier "utilisé par un autre processus").
+      const el = videoRef.current
+      if (el) {
+        el.pause()
+        el.removeAttribute('src')
+        el.load()
+      }
+      await new Promise((resolve) => setTimeout(resolve, 150))
+      await api.get(`/videos/delete?id=${video.id}`)
+      setConfirmDeleteOpen(false)
+      applyVideoDeleted(video.id)
+    } catch (e) {
+      setDeleteError(e.message || 'La suppression a échoué.')
+    } finally {
+      setDeleting(false)
+    }
   }
 
   useEffect(() => {
@@ -482,7 +504,7 @@ export default function VideoPlayerModal() {
                     {showPlaylistPopover && (
                       <AddToPlaylistPopover videoId={video.id} anchorRef={playlistBtnRef} onClose={() => setShowPlaylistPopover(false)} />
                     )}
-                    <button className="yt-btn yt-btn-icon hide-in-fullscreen" title="Supprimer" onClick={() => setConfirmDeleteOpen(true)}>🗑️</button>
+                    <button className="yt-btn yt-btn-icon hide-in-fullscreen" title="Supprimer" onClick={() => { setDeleteError(''); setConfirmDeleteOpen(true) }}>🗑️</button>
                     <button className="yt-btn yt-btn-icon" title="Plein écran" onClick={toggleFullScreen}>⛶</button>
                     <button className="yt-btn yt-btn-icon" title="Fermer" onClick={handleClose}>✕</button>
                   </div>
@@ -675,8 +697,10 @@ export default function VideoPlayerModal() {
       <ConfirmModal
         open={confirmDeleteOpen}
         text={`Voulez-vous vraiment supprimer "${video.title || 'cette vidéo'}" ?`}
+        error={deleteError}
+        busy={deleting}
         onConfirm={confirmDelete}
-        onCancel={() => setConfirmDeleteOpen(false)}
+        onCancel={() => { setConfirmDeleteOpen(false); setDeleteError('') }}
       />
     </>
   )
