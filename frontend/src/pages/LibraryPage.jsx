@@ -25,7 +25,9 @@ export default function LibraryPage() {
   const [tagFilter, setTagFilter] = useState(new Set())
   const [levelFilter, setLevelFilter] = useState(null) // 1..5, inverted scale like the star UI
   const [favoriteOnly, setFavoriteOnly] = useState(false)
-  const [showArchived, setShowArchived] = useState(false)
+  // 'hide' = masque les archivées (défaut), 'show' = affiche toutes (archivées incluses),
+  // 'only' = n'affiche que les archivées. Le bouton 📦 fait défiler ces 3 états au clic.
+  const [archivedFilter, setArchivedFilter] = useState('hide')
   const [search, setSearch] = useState('')
 
   const [page, setPage] = useState(1)
@@ -64,6 +66,18 @@ export default function LibraryPage() {
 
   useEffect(() => { loadAll() }, [])
 
+  // Le menu déroulant ne doit lister que les créateurs ayant plus de 5 vidéos
+  // (compté sur l'ensemble des vidéos, indépendamment des filtres actifs).
+  const creatorOptions = useMemo(() => {
+    const counts = new Map()
+    videos.forEach((v) => {
+      (v.creators || []).forEach((c) => counts.set(c, (counts.get(c) || 0) + 1))
+    })
+    return creators
+      .filter((c) => (counts.get(c) || 0) > 5)
+      .sort((a, b) => a.localeCompare(b))
+  }, [creators, videos])
+
   const filtered = useMemo(() => {
     let list = videos
     if (creatorFilter === UNKNOWN_CREATOR) list = list.filter((v) => !v.creators?.length)
@@ -76,7 +90,8 @@ export default function LibraryPage() {
     }
     if (levelFilter) list = list.filter((v) => String(v.sourceIndex) === String(levelFilter))
     if (favoriteOnly) list = list.filter((v) => v.favorite === true)
-    if (!showArchived) list = list.filter((v) => !v.archived)
+    if (archivedFilter === 'hide') list = list.filter((v) => !v.archived)
+    else if (archivedFilter === 'only') list = list.filter((v) => v.archived)
 
     const query = search.trim().toLowerCase()
     if (query) {
@@ -100,14 +115,14 @@ export default function LibraryPage() {
       default: break
     }
     return sorted
-  }, [videos, creatorFilter, tagFilter, levelFilter, favoriteOnly, showArchived, search, sort])
+  }, [videos, creatorFilter, tagFilter, levelFilter, favoriteOnly, archivedFilter, search, sort])
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize))
   const clampedPage = Math.min(page, totalPages)
   const pageItems = filtered.slice((clampedPage - 1) * pageSize, clampedPage * pageSize)
 
   const resetFilters = () => {
-    setCreatorFilter(''); setTagFilter(new Set()); setLevelFilter(null); setFavoriteOnly(false); setShowArchived(false); setSort('level-desc'); setPage(1)
+    setCreatorFilter(''); setTagFilter(new Set()); setLevelFilter(null); setFavoriteOnly(false); setArchivedFilter('hide'); setSort('level-desc'); setPage(1)
   }
 
   const toggleTagFilter = (tag) => {
@@ -195,7 +210,7 @@ export default function LibraryPage() {
             <select className="creator-filter-select" value={creatorFilter} onChange={(e) => { setCreatorFilter(e.target.value); setPage(1) }}>
               <option value="">Tout</option>
               <option value={UNKNOWN_CREATOR}>UKWN</option>
-              {creators.map((c) => <option key={c} value={c}>{c}</option>)}
+              {creatorOptions.map((c) => <option key={c} value={c}>{c}</option>)}
             </select>
           </div>
 
@@ -213,10 +228,21 @@ export default function LibraryPage() {
                   >★</span>
                 )
               })}
-              <label className={`filter-favorite-toggle filter-archived-toggle ${showArchived ? 'active' : ''}`} title="Afficher les vidéos archivées">
-                <input type="checkbox" checked={showArchived} onChange={(e) => { setShowArchived(e.target.checked); setPage(1) }} />
-                📦
-              </label>
+              <button
+                type="button"
+                className={`filter-favorite-toggle filter-archived-toggle ${archivedFilter !== 'hide' ? 'active' : ''}`}
+                title={
+                  archivedFilter === 'hide' ? 'Vidéos archivées masquées (cliquer pour les afficher)'
+                    : archivedFilter === 'show' ? 'Toutes les vidéos affichées, archivées incluses (cliquer pour n\'afficher que les archivées)'
+                    : 'Seulement les vidéos archivées (cliquer pour les masquer à nouveau)'
+                }
+                onClick={() => {
+                  setArchivedFilter((prev) => (prev === 'hide' ? 'show' : prev === 'show' ? 'only' : 'hide'))
+                  setPage(1)
+                }}
+              >
+                📦{archivedFilter === 'only' ? '!' : ''}
+              </button>
             </div>
             <div className="filter-favorite-reset-group">
               <label className={`filter-favorite-toggle ${favoriteOnly ? 'active' : ''}`}>
