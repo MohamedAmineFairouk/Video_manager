@@ -1110,6 +1110,119 @@ button, input, select {
     padding: 8px;
 }
 
+/* Liste déroulante des créateurs avec recherche (CreatorFilterSelect) */
+/* Le panneau se positionne par rapport à toute la ligne de filtres
+   (tri + créateurs) pour profiter de toute la largeur de la barre latérale. */
+.filter-select-row { position: relative; }
+
+.creator-combo {
+    padding: 0;
+}
+
+.creator-combo:focus-within { border-color: var(--blue); }
+
+.creator-combo-trigger {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    width: 100%;
+    height: 100%;
+    padding: 10px 12px;
+    background: transparent;
+    border: none;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.creator-combo-label {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.creator-combo-caret {
+    color: var(--muted);
+    font-size: 11px;
+}
+
+.creator-count-badge {
+    flex: 0 0 auto;
+    min-width: 18px;
+    padding: 1px 5px;
+    border-radius: 999px;
+    background: rgba(59, 130, 246, 0.2);
+    color: #93c5fd;
+    font-size: 10px;
+    font-weight: 600;
+    line-height: 1.4;
+    text-align: center;
+}
+
+.creator-combo-panel {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    right: 0;
+    z-index: 50;
+    padding: 6px;
+    background: var(--panel);
+    border: 1px solid rgba(148, 163, 184, 0.35);
+    border-radius: 8px;
+    box-shadow: var(--shadow-elevated);
+}
+
+.creator-combo-search {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 7px 8px;
+    margin-bottom: 6px;
+    border: 1px solid rgba(148, 163, 184, 0.3);
+    background: rgba(15, 23, 42, 0.6);
+    color: var(--text);
+    border-radius: 6px;
+    font-size: 13px;
+    outline: none;
+}
+
+.creator-combo-search:focus { border-color: var(--blue); }
+
+.creator-combo-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    max-height: 420px;
+    overflow-y: auto;
+    padding-right: 4px;
+}
+
+.creator-combo-list::-webkit-scrollbar { width: 7px; }
+.creator-combo-list::-webkit-scrollbar-track { background: transparent; }
+.creator-combo-list::-webkit-scrollbar-thumb { background: #334155; border-radius: 6px; }
+.creator-combo-list::-webkit-scrollbar-thumb:hover { background: #3b82f6; }
+
+.creator-combo-option {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 10px;
+    border-radius: 6px;
+    font-size: 13.5px;
+    cursor: pointer;
+}
+
+.creator-combo-option.highlight { background: rgba(59, 130, 246, 0.18); }
+.creator-combo-option.selected { color: #93c5fd; font-weight: 600; }
+
+.creator-combo-empty {
+    padding: 6px 8px;
+    color: var(--muted);
+    font-size: 13px;
+}
+
 .filter-row-split {
     display: flex;
     align-items: center;

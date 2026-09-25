@@ -15,7 +15,7 @@ export default function PlaylistDetailPage({ playlistId }) {
   const [nameDraft, setNameDraft] = useState('')
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false)
   const { navigate } = useRouter()
-  const { openPlayer } = usePlayer()
+  const { openPlayer, addToQueue, playNext } = usePlayer()
   const { viewMode, gridSize } = useViewPreferences()
 
   const load = async () => {
@@ -109,6 +109,8 @@ export default function PlaylistDetailPage({ playlistId }) {
               videos={playlist.videos}
               onOpen={handleOpen}
               onToggleFavorite={toggleFavorite}
+              onPlayNext={playNext}
+              onAddToQueue={addToQueue}
               emptyMessage="Cette playlist est vide. Ajoute des vidéos depuis le lecteur (bouton + Playlist)."
               extraAction={{ icon: '✕', title: 'Retirer de la playlist', onClick: removeVideo }}
               viewMode={viewMode}

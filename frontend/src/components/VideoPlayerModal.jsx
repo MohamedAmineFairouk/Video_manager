@@ -45,7 +45,9 @@ function EditableEntityField({ icon, tooltip, items, editing, onToggleEdit, badg
 }
 
 export default function VideoPlayerModal() {
-  const { queue, index, isOpen, minimized, setMinimized, closePlayer, goTo, applyVideoUpdate, applyVideoDeleted } = usePlayer()
+  const { queue, index, isOpen, minimized, setMinimized, closePlayer, goTo, removeFromQueue, moveInQueue, applyVideoUpdate, applyVideoDeleted } = usePlayer()
+  const [dragFrom, setDragFrom] = useState(null)
+  const [dragOver, setDragOver] = useState(null)
   const video = isOpen && index >= 0 ? queue[index] : null
 
   const videoRef = useRef(null)
@@ -669,8 +671,26 @@ export default function VideoPlayerModal() {
                 {upNext.length === 0 && <p className="up-next-empty">Aucune autre vidéo dans cette liste.</p>}
                 {upNext.map((v, offset) => {
                   const targetIndex = index + offset + 1
+                  const stop = (fn) => (e) => { e.stopPropagation(); fn() }
                   return (
-                    <button key={v.id} type="button" className="up-next-item" onClick={() => handleGoTo(targetIndex)}>
+                    <div
+                      key={v.id}
+                      role="button"
+                      tabIndex={0}
+                      className={`up-next-item ${dragFrom === targetIndex ? 'dragging' : ''} ${dragOver === targetIndex && dragFrom !== targetIndex ? 'drag-over' : ''}`}
+                      onClick={() => handleGoTo(targetIndex)}
+                      onKeyDown={(e) => { if (e.key === 'Enter') handleGoTo(targetIndex) }}
+                      draggable
+                      onDragStart={(e) => { setDragFrom(targetIndex); e.dataTransfer.effectAllowed = 'move' }}
+                      onDragOver={(e) => { e.preventDefault(); setDragOver(targetIndex) }}
+                      onDrop={(e) => { e.preventDefault(); if (dragFrom != null) moveInQueue(dragFrom, targetIndex); setDragFrom(null); setDragOver(null) }}
+                      onDragEnd={() => { setDragFrom(null); setDragOver(null) }}
+                    >
+                      <div className="up-next-actions">
+                        <button type="button" title="Monter" disabled={offset === 0} onClick={stop(() => moveInQueue(targetIndex, targetIndex - 1))}>↑</button>
+                        <button type="button" title="Descendre" disabled={targetIndex >= queue.length - 1} onClick={stop(() => moveInQueue(targetIndex, targetIndex + 1))}>↓</button>
+                        <button type="button" title="Retirer de la file d'attente" className="danger" onClick={stop(() => removeFromQueue(targetIndex))}>✕</button>
+                      </div>
                       <img className="up-next-thumbnail" src={thumbnailUrl(v.id)} alt="" loading="lazy" onError={(e) => { e.currentTarget.style.opacity = 0.3 }} />
                       <div className="up-next-details">
                         <div className="up-next-video-title">{v.title || v.fileName || 'Vidéo sans titre'}</div>
@@ -685,7 +705,7 @@ export default function VideoPlayerModal() {
                           </div>
                         )}
                       </div>
-                    </button>
+                    </div>
                   )
                 })}
               </div>

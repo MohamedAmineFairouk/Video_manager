@@ -938,6 +938,43 @@
     cursor: pointer;
 }
 
+/* Édition de la file d'attente : glisser-déposer + boutons au survol */
+.up-next-list .up-next-item { position: relative; }
+.up-next-item.dragging { opacity: 0.4; }
+.up-next-item.drag-over { box-shadow: 0 -2px 0 0 #38bdf8; }
+.up-next-item[draggable="true"] { cursor: grab; }
+
+.up-next-actions {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    z-index: 2;
+    display: flex;
+    gap: 3px;
+    opacity: 0;
+    transition: opacity 0.15s ease;
+}
+
+.up-next-item:hover .up-next-actions,
+.up-next-item:focus-within .up-next-actions { opacity: 1; }
+
+.up-next-actions button {
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    border: 1px solid rgba(148, 163, 184, 0.35);
+    border-radius: 6px;
+    background: rgba(15, 23, 42, 0.92);
+    color: #e2e8f0;
+    font-size: 12px;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.up-next-actions button:hover:not(:disabled) { background: #3b82f6; border-color: #3b82f6; }
+.up-next-actions button.danger:hover { background: #ef4444; border-color: #ef4444; }
+.up-next-actions button:disabled { opacity: 0.35; cursor: default; }
+
 .up-next-item.current .up-next-thumbnail {
     box-shadow: 0 0 0 2px #38bdf8;
 }

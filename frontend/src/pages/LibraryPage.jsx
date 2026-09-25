@@ -5,6 +5,7 @@ import VideoCarousel from '../components/VideoCarousel'
 import ViewToggle from '../components/ViewToggle'
 import Pagination from '../components/Pagination'
 import AddToPlaylistPopover from '../components/AddToPlaylistPopover'
+import CreatorFilterSelect from '../components/CreatorFilterSelect'
 import { api } from '../api/client'
 import { usePlayer } from '../context/PlayerContext'
 import { useViewPreferences } from '../context/ViewPreferencesContext'
@@ -66,17 +67,17 @@ export default function LibraryPage() {
 
   useEffect(() => { loadAll() }, [])
 
-  // Le menu déroulant ne doit lister que les créateurs ayant plus de 5 vidéos
-  // (compté sur l'ensemble des vidéos, indépendamment des filtres actifs).
-  const creatorOptions = useMemo(() => {
+  // Nombre de vidéos par créateur (compté sur l'ensemble des vidéos, indépendamment
+  // des filtres actifs). Sans recherche, le menu ne liste que ceux ayant plus de 5 vidéos.
+  const { creatorCounts, unknownCreatorCount } = useMemo(() => {
     const counts = new Map()
+    let unknown = 0
     videos.forEach((v) => {
-      (v.creators || []).forEach((c) => counts.set(c, (counts.get(c) || 0) + 1))
+      if (!v.creators?.length) unknown++
+      ;(v.creators || []).forEach((c) => counts.set(c, (counts.get(c) || 0) + 1))
     })
-    return creators
-      .filter((c) => (counts.get(c) || 0) > 5)
-      .sort((a, b) => a.localeCompare(b))
-  }, [creators, videos])
+    return { creatorCounts: counts, unknownCreatorCount: unknown }
+  }, [videos])
 
   const filtered = useMemo(() => {
     let list = videos
@@ -207,11 +208,14 @@ export default function LibraryPage() {
               <option value="oldest">Plus ancien</option>
             </select>
 
-            <select className="creator-filter-select" value={creatorFilter} onChange={(e) => { setCreatorFilter(e.target.value); setPage(1) }}>
-              <option value="">Tout</option>
-              <option value={UNKNOWN_CREATOR}>UKWN</option>
-              {creatorOptions.map((c) => <option key={c} value={c}>{c}</option>)}
-            </select>
+            <CreatorFilterSelect
+              value={creatorFilter}
+              onChange={(v) => { setCreatorFilter(v); setPage(1) }}
+              creators={creators}
+              counts={creatorCounts}
+              unknownValue={UNKNOWN_CREATOR}
+              unknownCount={unknownCreatorCount}
+            />
           </div>
 
           <div className="filter-row-split">

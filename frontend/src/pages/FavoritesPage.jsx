@@ -12,7 +12,7 @@ export default function FavoritesPage() {
   const [loading, setLoading] = useState(true)
   const [page, setPage] = useState(1)
   const [pageSize] = useState(50)
-  const { openPlayer, addToQueue } = usePlayer()
+  const { openPlayer, addToQueue, playNext } = usePlayer()
   const { viewMode, gridSize } = useViewPreferences()
 
   const load = async () => {
@@ -64,6 +64,8 @@ export default function FavoritesPage() {
             videos={pageItems}
             onOpen={handleOpen}
             onToggleFavorite={toggleFavorite}
+            onPlayNext={playNext}
+            onAddToQueue={addToQueue}
             extraAction={{
               icon: '➕',
               title: 'Ajouter à la liste de lecture actuelle',
