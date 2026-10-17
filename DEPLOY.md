@@ -27,6 +27,9 @@ $pg = 'C:\Program Files\PostgreSQL\15\bin'
 & "$pg\dropdb.exe"   -U postgres --if-exists db_video_dev
 & "$pg\createdb.exe" -U postgres db_video_dev
 & "$pg\pg_dump.exe"  -U postgres db_video | & "$pg\psql.exe" -q -U postgres db_video_dev
+# Les ids des vidéos créées en dev (éditeur ✂) ne doivent pas croiser ceux de la prod :
+# le storyboard est nommé storyboard_<id> dans le dossier thumbnails/ partagé.
+& "$pg\psql.exe" -U postgres -d db_video_dev -c "select setval(pg_get_serial_sequence('video','id'), 900000)"
 ```
 
 ### Lancer le backend de dev (port 8081, base de dev)
@@ -49,6 +52,9 @@ npm run dev        # http://localhost:5173
 > `application.properties`). Les modifications de métadonnées (titres, créateurs, tags, playlists,
 > favoris...) ne touchent que `db_video_dev`, mais **supprimer une vidéo en dev déplace le vrai
 > fichier** hors du dossier prod. Ne pas tester la suppression en dev.
+> De même, une vidéo créée en dev avec l'éditeur ✂ écrit son fichier, sa miniature et son
+> storyboard dans ces dossiers partagés (fichiers inconnus de la base prod) : les supprimer
+> après les tests.
 
 ## 2. Release (après validation)
 

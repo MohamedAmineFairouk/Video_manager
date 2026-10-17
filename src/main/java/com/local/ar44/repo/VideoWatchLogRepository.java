@@ -8,5 +8,7 @@ import org.springframework.stereotype.Repository;
 public interface VideoWatchLogRepository extends JpaRepository<VideoWatchLog, Long> {
     long countByVideoId(Long videoId);
 
+    java.util.List<VideoWatchLog> findByVideoId(Long videoId);
+
     void deleteByVideoId(Long videoId);
 }

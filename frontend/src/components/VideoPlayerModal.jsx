@@ -8,6 +8,7 @@ import {
 import AddToPlaylistPopover from './AddToPlaylistPopover'
 import ConfirmModal from './ConfirmModal'
 import EntityPicker from './EntityPicker'
+import VideoEditorModal from './VideoEditorModal'
 
 const VOLUME_STORAGE_KEY = 'ar44.player.volume'
 
@@ -58,7 +59,7 @@ function EditableEntityField({ icon, tooltip, items, editing, onToggleEdit, badg
 }
 
 export default function VideoPlayerModal() {
-  const { queue, index, isOpen, minimized, setMinimized, playlistInfo, closePlayer, goTo, removeFromQueue, moveInQueue, applyVideoUpdate, applyVideoDeleted } = usePlayer()
+  const { queue, index, isOpen, minimized, setMinimized, playlistInfo, openPlayer, closePlayer, goTo, removeFromQueue, moveInQueue, applyVideoUpdate, applyVideoDeleted } = usePlayer()
   const [dragFrom, setDragFrom] = useState(null)
   const [dragOver, setDragOver] = useState(null)
   const video = isOpen && index >= 0 ? queue[index] : null
@@ -74,7 +75,6 @@ export default function VideoPlayerModal() {
   const [duration, setDuration] = useState(0)
   const [buffering, setBuffering] = useState(false)
   const [seekPreview, setSeekPreview] = useState(null)
-  const [theater, setTheater] = useState(false)
   const [pulse, setPulse] = useState(false)
   const [playbackRate, setPlaybackRate] = useState(1)
   // Le <video> est recréé à chaque vidéo (key={video.id}) : volume, muet et vitesse
@@ -101,6 +101,7 @@ export default function VideoPlayerModal() {
   const [isFullscreenActive, setIsFullscreenActive] = useState(false)
   const [controlsVisible, setControlsVisible] = useState(true)
   const [fsUpNextOpen, setFsUpNextOpen] = useState(false)
+  const [editor, setEditor] = useState(null) // { startTime } quand l'éditeur ✂ est ouvert
   const hideControlsTimeoutRef = useRef(null)
   const [savingQueue, setSavingQueue] = useState(false)
   const [queuePlaylistName, setQueuePlaylistName] = useState('')
@@ -120,7 +121,6 @@ export default function VideoPlayerModal() {
     setDraftTags(video.tags || [])
     setEditingTags(false)
     setDraftLevel(video.sourceIndex && video.sourceIndex >= 1 && video.sourceIndex <= 5 ? video.sourceIndex : 1)
-    setTheater(false)
     setShowPlaylistPopover(false)
     setSaveStatus('')
     setCurrentTime(0)
@@ -421,8 +421,25 @@ export default function VideoPlayerModal() {
     }
   }
 
+  const openEditor = () => {
+    const el = videoRef.current
+    if (document.fullscreenElement) document.exitFullscreen?.()
+    el?.pause()
+    setEditor({ startTime: el?.currentTime || 0 })
+  }
+
+  // Ouvre la vidéo créée par l'éditeur dans le lecteur.
+  const openCreatedVideo = async (videoId) => {
+    setEditor(null)
+    try {
+      const all = await api.get('/videos')
+      const created = all.find((v) => v.id === videoId)
+      if (created) openPlayer([created], 0)
+    } catch { /* la vidéo reste visible dans la bibliothèque */ }
+  }
+
   useEffect(() => {
-    if (!isOpen) return
+    if (!isOpen || editor) return
     function onKeyDown(e) {
       const activeTag = document.activeElement?.tagName
       const isTyping = activeTag === 'INPUT' || activeTag === 'TEXTAREA' || activeTag === 'SELECT' || document.activeElement?.isContentEditable
@@ -435,7 +452,7 @@ export default function VideoPlayerModal() {
     }
     document.addEventListener('keydown', onKeyDown)
     return () => document.removeEventListener('keydown', onKeyDown)
-  }, [isOpen, index, queue.length, handleGoTo, handleClose])
+  }, [isOpen, editor, index, queue.length, handleGoTo, handleClose])
 
   if (!video) return null
 
@@ -505,7 +522,7 @@ export default function VideoPlayerModal() {
         onClick={(e) => { if (!minimized && e.target === e.currentTarget) handleClose() }}
       >
         <button className="player-close-btn" title="Fermer" onClick={handleClose}>✕</button>
-        <div className={`player-shell ${theater ? 'theater' : ''}`}>
+        <div className="player-shell">
           {minimized && (
             <div className="mini-player-header">
               <span className="mini-player-title" title={video.title}>{video.title || 'Lecture vidéo'}</span>
@@ -603,13 +620,13 @@ export default function VideoPlayerModal() {
                       <option value="2">2x</option>
                     </select>
                     <button className="yt-btn yt-btn-icon hide-in-fullscreen" title="Réduire" onClick={toggleMinimize}>🗕</button>
-                    <button className="yt-btn yt-btn-icon hide-in-fullscreen" title="Mode théâtre" onClick={() => setTheater((t) => !t)}>▭</button>
                     <button className={`yt-btn yt-btn-icon ${video.favorite ? 'active' : ''}`} title="Favori" onClick={toggleFavorite}>♥</button>
                     <button className={`yt-btn yt-btn-icon ${video.archived ? 'active' : ''}`} title={video.archived ? 'Désarchiver' : 'Archiver'} onClick={toggleArchived}>📦</button>
                     <button ref={playlistBtnRef} className="yt-btn yt-btn-icon hide-in-fullscreen" title="Ajouter à une playlist" onClick={() => setShowPlaylistPopover((s) => !s)}>➕</button>
                     {showPlaylistPopover && (
                       <AddToPlaylistPopover videoId={video.id} anchorRef={playlistBtnRef} onClose={() => setShowPlaylistPopover(false)} />
                     )}
+                    <button className="yt-btn yt-btn-icon hide-in-fullscreen" title="Découper : créer une nouvelle vidéo à partir de passages choisis" onClick={openEditor}>✂</button>
                     <button className="yt-btn yt-btn-icon hide-in-fullscreen" title="Supprimer" onClick={() => { setDeleteError(''); setConfirmDeleteOpen(true) }}>🗑️</button>
                     {isFullscreenActive && (
                       <button
@@ -802,6 +819,15 @@ export default function VideoPlayerModal() {
           </div>
         </div>
       </div>
+
+      {editor && (
+        <VideoEditorModal
+          video={video}
+          startTime={editor.startTime}
+          onClose={() => setEditor(null)}
+          onOpenVideo={openCreatedVideo}
+        />
+      )}
 
       <ConfirmModal
         open={confirmDeleteOpen}

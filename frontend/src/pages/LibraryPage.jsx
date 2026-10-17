@@ -67,6 +67,13 @@ export default function LibraryPage() {
 
   useEffect(() => { loadAll() }, [])
 
+  // Une vidéo a été créée ailleurs (éditeur ✂ du lecteur) : on recharge la liste.
+  useEffect(() => {
+    const reload = () => api.get('/videos').then(setVideos).catch(() => {})
+    window.addEventListener('ar44:videos-changed', reload)
+    return () => window.removeEventListener('ar44:videos-changed', reload)
+  }, [])
+
   // Nombre de vidéos par créateur (compté sur l'ensemble des vidéos, indépendamment
   // des filtres actifs). Sans recherche, le menu ne liste que ceux ayant plus de 5 vidéos.
   const { creatorCounts, unknownCreatorCount } = useMemo(() => {
