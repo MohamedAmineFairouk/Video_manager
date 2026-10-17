@@ -89,7 +89,15 @@ export default function LibraryPage() {
         return Array.from(tagFilter).every((t) => videoTags.includes(t))
       })
     }
-    if (levelFilter) list = list.filter((v) => String(v.sourceIndex) === String(levelFilter))
+    // Filtre "jusqu'à N étoiles" : N étoiles choisies = vidéos de 1 à N étoiles.
+    // sourceIndex est inversé (1 = 5 étoiles ... 5 = 1 étoile) ; une valeur absente compte
+    // comme 5 étoiles, comme à l'affichage (levelToFilledStars).
+    if (levelFilter) {
+      list = list.filter((v) => {
+        const level = v.sourceIndex >= 1 && v.sourceIndex <= 5 ? v.sourceIndex : 1
+        return level >= levelFilter
+      })
+    }
     if (favoriteOnly) list = list.filter((v) => v.favorite === true)
     if (archivedFilter === 'hide') list = list.filter((v) => !v.archived)
     else if (archivedFilter === 'only') list = list.filter((v) => v.archived)
