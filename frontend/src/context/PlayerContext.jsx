@@ -9,15 +9,45 @@ export function PlayerProvider({ children }) {
   const [minimized, setMinimized] = useState(false)
   const [onVideoUpdated, setOnVideoUpdated] = useState(null)
   const [onVideoDeleted, setOnVideoDeleted] = useState(null)
+  // Ids des vidéos ajoutées automatiquement à "À suivre" (les N suivantes de la
+  // bibliothèque). Celles mises en file par l'utilisateur passent toujours avant.
+  const [autoIds, setAutoIds] = useState(() => new Set())
 
   const openPlayer = useCallback((videos, startIndex, handlers = {}) => {
     setQueue(videos)
     setIndex(startIndex)
+    setAutoIds(new Set())
     setIsOpen(true)
     setMinimized(false)
     setOnVideoUpdated(() => handlers.onVideoUpdated || null)
     setOnVideoDeleted(() => handlers.onVideoDeleted || null)
   }, [])
+
+  // Lecture depuis une liste (bibliothèque) : si l'utilisateur n'a rien mis en file
+  // après la vidéo en cours, "À suivre" est rempli avec les `fillCount` vidéos qui
+  // suivent `video` dans `list` ; sinon la vidéo est lue tout de suite et la file
+  // de l'utilisateur est conservée derrière elle (les ajouts automatiques sont retirés).
+  const playFromList = useCallback((video, list, handlers = {}, fillCount = 20) => {
+    const userAhead = isOpen
+      ? queue.slice(index + 1).filter((v) => !autoIds.has(v.id) && v.id !== video.id)
+      : []
+    setOnVideoUpdated(() => handlers.onVideoUpdated || null)
+    setOnVideoDeleted(() => handlers.onVideoDeleted || null)
+    if (userAhead.length) {
+      const history = queue.slice(0, index + 1)
+      setQueue([...history, video, ...userAhead])
+      setIndex(history.length)
+      setAutoIds(new Set())
+      return
+    }
+    const at = list.findIndex((v) => v.id === video.id)
+    const following = at >= 0 ? list.slice(at + 1, at + 1 + fillCount) : []
+    setQueue([video, ...following])
+    setIndex(0)
+    setAutoIds(new Set(following.map((v) => v.id)))
+    setIsOpen(true)
+    setMinimized(false)
+  }, [isOpen, queue, index, autoIds])
 
   const closePlayer = useCallback(() => {
     setIsOpen(false)
@@ -31,18 +61,53 @@ export function PlayerProvider({ children }) {
     })
   }, [queue.length])
 
-  // `addToQueue` et `playNext` acceptent une vidéo ou une liste de vidéos (ex. une playlist entière).
-  const addToQueue = useCallback((videoOrList) => {
-    const videos = Array.isArray(videoOrList) ? videoOrList : [videoOrList]
-    setQueue((prev) => {
-      const ids = new Set(prev.map((v) => v.id))
-      const added = videos.filter((v) => !ids.has(v.id) && ids.add(v.id))
-      return added.length ? [...prev, ...added] : prev
+  // Sans lecteur ouvert, ajouter à la file démarre un mini-lecteur sur ces vidéos
+  // (l'ancienne file d'un lecteur fermé est abandonnée).
+  const openMiniPlayer = useCallback((videos) => {
+    const unique = videos.filter((v, i) => videos.findIndex((o) => o.id === v.id) === i)
+    if (!unique.length) return
+    setQueue(unique)
+    setIndex(0)
+    setIsOpen(true)
+    setMinimized(true)
+    setOnVideoUpdated(null)
+    setOnVideoDeleted(null)
+    setAutoIds(new Set())
+  }, [])
+
+  // Une vidéo mise en file par l'utilisateur n'est plus considérée comme automatique.
+  const markAsUser = useCallback((videos) => {
+    setAutoIds((prev) => {
+      if (!videos.some((v) => prev.has(v.id))) return prev
+      const next = new Set(prev)
+      videos.forEach((v) => next.delete(v.id))
+      return next
     })
   }, [])
 
+  // `addToQueue` et `playNext` acceptent une vidéo ou une liste de vidéos (ex. une playlist entière).
+  const addToQueue = useCallback((videoOrList) => {
+    const videos = Array.isArray(videoOrList) ? videoOrList : [videoOrList]
+    if (!isOpen) { openMiniPlayer(videos); return }
+    const addedIds = new Set(videos.map((v) => v.id))
+    setQueue((prev) => {
+      // Une vidéo automatique encore à venir est "promue" : retirée de sa place
+      // puis réinsérée dans la file utilisateur.
+      const base = prev.filter((v, i) => !(i > index && autoIds.has(v.id) && addedIds.has(v.id)))
+      const ids = new Set(base.map((v) => v.id))
+      const added = videos.filter((v) => !ids.has(v.id) && ids.add(v.id))
+      if (!added.length) return prev
+      // Insertion après la file utilisateur, avant les vidéos ajoutées automatiquement.
+      const firstAuto = base.findIndex((v, i) => i > index && autoIds.has(v.id) && !addedIds.has(v.id))
+      const insertAt = firstAuto === -1 ? base.length : firstAuto
+      return [...base.slice(0, insertAt), ...added, ...base.slice(insertAt)]
+    })
+    markAsUser(videos)
+  }, [isOpen, openMiniPlayer, index, autoIds, markAsUser])
+
   const playNext = useCallback((videoOrList) => {
     const videos = Array.isArray(videoOrList) ? videoOrList : [videoOrList]
+    if (!isOpen) { openMiniPlayer(videos); return }
     const ids = new Set(videos.map((v) => v.id))
     setQueue((prev) => {
       // Only dedupe an occurrence ahead of the current index - removing one
@@ -51,7 +116,8 @@ export function PlayerProvider({ children }) {
       const insertAt = Math.min(index + 1, withoutDuplicateAhead.length)
       return [...withoutDuplicateAhead.slice(0, insertAt), ...videos, ...withoutDuplicateAhead.slice(insertAt)]
     })
-  }, [index])
+    markAsUser(videos)
+  }, [index, isOpen, openMiniPlayer, markAsUser])
 
   // Retire l'élément à la position `at` de la file (jamais la vidéo en cours).
   const removeFromQueue = useCallback((at) => {
@@ -88,7 +154,7 @@ export function PlayerProvider({ children }) {
   return (
     <PlayerContext.Provider value={{
       queue, index, isOpen, minimized, setMinimized,
-      openPlayer, closePlayer, goTo, addToQueue, playNext, removeFromQueue, moveInQueue,
+      openPlayer, playFromList, closePlayer, goTo, addToQueue, playNext, removeFromQueue, moveInQueue,
       applyVideoUpdate, applyVideoDeleted,
     }}>
       {children}

@@ -89,7 +89,7 @@ function HoverStoryboard({ videoId, active }) {
   )
 }
 
-function VideoCardMenu({ video, pos, onPlayNext, onAddToQueue, onClose }) {
+export function VideoCardMenu({ video, pos, onPlayNext, onAddToQueue, onClose }) {
   const [showPlaylist, setShowPlaylist] = useState(false)
   const menuRef = useRef(null)
   const virtualAnchorRef = useRef({

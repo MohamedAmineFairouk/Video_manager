@@ -39,7 +39,7 @@ export default function LibraryPage() {
   const [showBulkPlaylist, setShowBulkPlaylist] = useState(false)
   const bulkPlaylistBtnRef = useRef(null)
 
-  const { openPlayer, addToQueue, playNext } = usePlayer()
+  const { playFromList, addToQueue, playNext } = usePlayer()
   const { viewMode, gridSize } = useViewPreferences()
   const { navigate } = useRouter()
 
@@ -110,6 +110,8 @@ export default function LibraryPage() {
       case 'name-desc': sorted.sort((a, b) => (b.title || '').localeCompare(a.title || '')); break
       case 'recent': sorted.sort((a, b) => (b.id || 0) - (a.id || 0)); break
       case 'oldest': sorted.sort((a, b) => (a.id || 0) - (b.id || 0)); break
+      // À nombre de vues égal, les meilleures étoiles d'abord (sourceIndex inversé).
+      case 'most-viewed': sorted.sort((a, b) => (b.viewCount || 0) - (a.viewCount || 0) || (a.sourceIndex || 0) - (b.sourceIndex || 0)); break
       // sourceIndex is stored inverted (1 = 5 stars/best ... 5 = 1 star/worst), see utils.js levelToFilledStars
       case 'level-desc': sorted.sort((a, b) => (a.sourceIndex || 0) - (b.sourceIndex || 0)); break
       case 'level-asc': sorted.sort((a, b) => (b.sourceIndex || 0) - (a.sourceIndex || 0)); break
@@ -135,10 +137,10 @@ export default function LibraryPage() {
     setPage(1)
   }
 
-  const handleOpen = (video) => {
-    // Opening from the library starts an empty "up next" - only a playlist's
-    // own videos should pre-fill the queue (see PlaylistDetailPage).
-    openPlayer([video], 0, {
+  // Ouvre la vidéo depuis la bibliothèque : "À suivre" reprend les 20 vidéos suivantes
+  // de la liste filtrée/triée, sauf si l'utilisateur a déjà une file en cours.
+  const handleOpen = (video, list = filtered) => {
+    playFromList(video, list, {
       onVideoUpdated: (updated) => setVideos((prev) => prev.map((v) => (v.id === updated.id ? updated : v))),
       onVideoDeleted: (id) => setVideos((prev) => prev.filter((v) => v.id !== id)),
     })
@@ -158,8 +160,23 @@ export default function LibraryPage() {
   }
 
   const addSelectionToQueue = () => {
-    videos.filter((v) => selected.has(v.id)).forEach((v) => addToQueue(v))
+    addToQueue(videos.filter((v) => selected.has(v.id)))
     setStatus(`${selected.size} vidéo(s) ajoutée(s) à la file d'attente.`)
+  }
+
+  // Si toutes les vidéos sélectionnées sont déjà archivées, le bouton les désarchive ;
+  // sinon il archive toute la sélection.
+  const selectedVideos = videos.filter((v) => selected.has(v.id))
+  const selectionAllArchived = selectedVideos.length > 0 && selectedVideos.every((v) => v.archived)
+
+  const archiveSelection = async () => {
+    const archived = !selectionAllArchived
+    const ids = selectedVideos.map((v) => v.id)
+    await api.post(`/videos/archive/set?archived=${archived}`, ids)
+    const idSet = new Set(ids)
+    setVideos((prev) => prev.map((v) => (idSet.has(v.id) ? { ...v, archived } : v)))
+    setSelected(new Set())
+    setStatus(`${ids.length} vidéo(s) ${archived ? 'archivée(s)' : 'désarchivée(s)'}.`)
   }
 
   const exportM3U = () => {
@@ -206,6 +223,7 @@ export default function LibraryPage() {
               <option value="name-desc">Nom (Z-A)</option>
               <option value="recent">Plus récent</option>
               <option value="oldest">Plus ancien</option>
+              <option value="most-viewed">Plus vues</option>
             </select>
 
             <CreatorFilterSelect
@@ -326,7 +344,7 @@ export default function LibraryPage() {
           </div>
         </div>
 
-        <VideoCarousel videos={carouselVideos} onOpen={handleOpen} />
+        <VideoCarousel videos={carouselVideos} onOpen={(v) => handleOpen(v, carouselVideos)} onPlayNext={playNext} onAddToQueue={addToQueue} />
 
         <div className="list-controls">
           <div className="count-box">{filtered.length} vidéo(s)</div>
@@ -373,7 +391,7 @@ export default function LibraryPage() {
           />
         )}
 
-        <Pagination page={clampedPage} totalPages={totalPages} onChange={setPage} />
+        <Pagination page={clampedPage} totalPages={totalPages} onChange={setPage} scrollToTop />
       </main>
 
       {selected.size > 0 && (
@@ -393,6 +411,12 @@ export default function LibraryPage() {
               onClose={() => setShowBulkPlaylist(false)}
             />
           )}
+          <button
+            type="button"
+            className="bulk-toolbar-btn"
+            title={selectionAllArchived ? 'Désarchiver la sélection' : 'Archiver la sélection'}
+            onClick={archiveSelection}
+          >{selectionAllArchived ? '📤' : '📦'}</button>
           <button type="button" className="bulk-toolbar-btn subtle" title="Annuler la sélection" onClick={() => setSelected(new Set())}>✕</button>
         </div>
       )}

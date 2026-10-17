@@ -9,6 +9,19 @@ import AddToPlaylistPopover from './AddToPlaylistPopover'
 import ConfirmModal from './ConfirmModal'
 import EntityPicker from './EntityPicker'
 
+const VOLUME_STORAGE_KEY = 'ar44.player.volume'
+
+// Volume et mode muet mémorisés dans le navigateur (le stockage peut être indisponible).
+function loadVolumePrefs() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(VOLUME_STORAGE_KEY))
+    if (saved && Number.isFinite(saved.volume)) {
+      return { volume: Math.max(0, Math.min(1, saved.volume)), muted: saved.muted === true }
+    }
+  } catch { /* ignore */ }
+  return { volume: 1, muted: false }
+}
+
 function EditableEntityField({ icon, tooltip, items, editing, onToggleEdit, badgeClass, allItems, onSelect, onCreate, onRemove, placeholder }) {
   return (
     <div className={`player-inline-field ${editing ? 'editing' : ''}`}>
@@ -64,6 +77,9 @@ export default function VideoPlayerModal() {
   const [theater, setTheater] = useState(false)
   const [pulse, setPulse] = useState(false)
   const [playbackRate, setPlaybackRate] = useState(1)
+  // Le <video> est recréé à chaque vidéo (key={video.id}) : volume, muet et vitesse
+  // sont gardés ici puis réappliqués au nouvel élément.
+  const [volumePrefs, setVolumePrefs] = useState(loadVolumePrefs)
 
   const [draftTitle, setDraftTitle] = useState('')
   const [editingTitle, setEditingTitle] = useState(false)
@@ -117,6 +133,22 @@ export default function VideoPlayerModal() {
     anchorsApi.list(video.id).then(setAnchors).catch(() => {})
     api.post(`/videos/${video.id}/watched`).catch(() => {})
   }, [video?.id])
+
+  useEffect(() => {
+    const el = videoRef.current
+    if (!el) return
+    el.volume = volumePrefs.volume
+    el.muted = volumePrefs.muted
+    el.playbackRate = playbackRate
+  }, [video?.id])
+
+  const onVolumeChange = () => {
+    const el = videoRef.current
+    if (!el) return
+    const next = { volume: el.volume, muted: el.muted }
+    setVolumePrefs(next)
+    try { localStorage.setItem(VOLUME_STORAGE_KEY, JSON.stringify(next)) } catch { /* ignore */ }
+  }
 
   const reportSession = useCallback(() => {
     if (!video || !videoRef.current) return
@@ -427,7 +459,7 @@ export default function VideoPlayerModal() {
                   onPause={() => { setIsPlaying(false); triggerPulse() }}
                   onTimeUpdate={updateTimeline}
                   onLoadedMetadata={updateTimeline}
-                  onVolumeChange={updateTimeline}
+                  onVolumeChange={onVolumeChange}
                   onWaiting={() => setBuffering(true)}
                   onStalled={() => setBuffering(true)}
                   onSeeking={() => setBuffering(true)}
@@ -485,8 +517,8 @@ export default function VideoPlayerModal() {
                     <button className="yt-btn yt-btn-icon" title="Avancer de 10s" onClick={() => seekBy(10)}>⏩</button>
                     <button className="yt-btn yt-btn-icon" title="Vidéo précédente" disabled={index <= 0} onClick={() => handleGoTo(index - 1)}>⏮</button>
                     <button className="yt-btn yt-btn-icon" title="Vidéo suivante" disabled={index >= queue.length - 1} onClick={() => handleGoTo(index + 1)}>⏭</button>
-                    <button className="yt-btn yt-btn-icon" title={videoRef.current?.muted ? 'Activer le son' : 'Couper le son'} onClick={toggleMute}>{videoRef.current?.muted ? '🔇' : '🔊'}</button>
-                    <input className="yt-range" type="range" min="0" max="1" step="0.01" defaultValue={1} onInput={(e) => setVolume(e.target.value)} />
+                    <button className="yt-btn yt-btn-icon" title={volumePrefs.muted ? 'Activer le son' : 'Couper le son'} onClick={toggleMute}>{volumePrefs.muted ? '🔇' : '🔊'}</button>
+                    <input className="yt-range" type="range" min="0" max="1" step="0.01" value={volumePrefs.muted ? 0 : volumePrefs.volume} onChange={(e) => setVolume(e.target.value)} />
                     <button className="yt-btn yt-btn-icon" title="Ajouter une ancre à la position actuelle" onClick={addAnchorHere}>📍</button>
                   </div>
                   <div className="yt-actions-right">

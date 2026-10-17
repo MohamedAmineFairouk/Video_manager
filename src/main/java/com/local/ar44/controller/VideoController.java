@@ -667,6 +667,23 @@ public class VideoController {
         return "OK";
     }
 
+    // Archive (ou désarchive) en une fois les vidéos sélectionnées dans la bibliothèque.
+    @Transactional
+    @PostMapping("/archive/set")
+    public ResponseEntity<Map<String, Object>> setArchived(@RequestParam boolean archived, @RequestBody List<Long> ids) {
+        List<Video> videos = videoRepository.findAllById(ids);
+        LocalDateTime now = LocalDateTime.now();
+        for (Video v : videos) {
+            v.setArchived(archived);
+            v.setArchivedAt(archived ? now : null);
+        }
+        videoRepository.saveAll(videos);
+
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("videosUpdated", videos.size());
+        return ResponseEntity.ok(result);
+    }
+
     @Transactional
     @PostMapping("/archive/unarchive-all")
     public ResponseEntity<Map<String, Object>> unarchiveAll() {

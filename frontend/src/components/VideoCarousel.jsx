@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { thumbnailUrl } from '../api/client'
 import { formatDuration } from '../utils'
+import { VideoCardMenu } from './VideoCard'
 
-export default function VideoCarousel({ videos, onOpen }) {
+export default function VideoCarousel({ videos, onOpen, onPlayNext, onAddToQueue }) {
   const trackRef = useRef(null)
+  const [menu, setMenu] = useState(null) // { video, pos }
   const [canLeft, setCanLeft] = useState(false)
   const [canRight, setCanRight] = useState(false)
 
@@ -45,6 +47,11 @@ export default function VideoCarousel({ videos, onOpen }) {
                 key={v.id}
                 className="carousel-item"
                 onClick={() => onOpen(v)}
+                onContextMenu={(e) => {
+                  if (!onPlayNext && !onAddToQueue) return
+                  e.preventDefault()
+                  setMenu({ video: v, pos: { x: e.clientX, y: e.clientY } })
+                }}
                 title={v.title}
               >
                 <img
@@ -70,6 +77,15 @@ export default function VideoCarousel({ videos, onOpen }) {
           >›</button>
         </div>
       </div>
+      {menu && (
+        <VideoCardMenu
+          video={menu.video}
+          pos={menu.pos}
+          onPlayNext={onPlayNext}
+          onAddToQueue={onAddToQueue}
+          onClose={() => setMenu(null)}
+        />
+      )}
     </section>
   )
 }

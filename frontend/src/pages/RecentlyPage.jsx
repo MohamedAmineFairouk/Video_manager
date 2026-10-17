@@ -75,7 +75,7 @@ export default function RecentlyPage() {
             gridSize={gridSize}
           />
         )}
-        <Pagination page={clampedPage} totalPages={totalPages} onChange={setPage} />
+        <Pagination page={clampedPage} totalPages={totalPages} onChange={setPage} scrollToTop />
       </main>
     </div>
   )
