@@ -119,6 +119,7 @@ export default function LibraryPage() {
       case 'recent': sorted.sort((a, b) => (b.id || 0) - (a.id || 0)); break
       case 'oldest': sorted.sort((a, b) => (a.id || 0) - (b.id || 0)); break
       // À nombre de vues égal, les meilleures étoiles d'abord (sourceIndex inversé).
+      case 'longest': sorted.sort((a, b) => (b.durationMs || 0) - (a.durationMs || 0)); break
       case 'most-viewed': sorted.sort((a, b) => (b.viewCount || 0) - (a.viewCount || 0) || (a.sourceIndex || 0) - (b.sourceIndex || 0)); break
       // sourceIndex is stored inverted (1 = 5 stars/best ... 5 = 1 star/worst), see utils.js levelToFilledStars
       case 'level-desc': sorted.sort((a, b) => (a.sourceIndex || 0) - (b.sourceIndex || 0)); break
@@ -232,6 +233,7 @@ export default function LibraryPage() {
               <option value="recent">Plus récent</option>
               <option value="oldest">Plus ancien</option>
               <option value="most-viewed">Plus vues</option>
+              <option value="longest">Plus longues</option>
             </select>
 
             <CreatorFilterSelect
