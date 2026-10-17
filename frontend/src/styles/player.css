@@ -223,6 +223,74 @@
     display: none;
 }
 
+/* Plein écran : bandeau du haut (titre à gauche, étoiles à droite) sur fond dégradé transparent */
+.fs-top-bar {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 5;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 24px;
+    padding: 18px 24px 40px;
+    background: linear-gradient(180deg, rgba(0, 0, 0, 0.75) 0%, rgba(0, 0, 0, 0.35) 60%, transparent 100%);
+    pointer-events: none;
+    transition: opacity 0.3s ease;
+}
+
+.fs-top-bar.controls-hidden { opacity: 0; }
+
+.fs-top-title {
+    min-width: 0;
+    overflow: hidden;
+    color: #f8fafc;
+    font-size: 20px;
+    font-weight: 600;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    text-shadow: 0 1px 4px rgba(0, 0, 0, 0.7);
+}
+
+.fs-top-stars {
+    flex-shrink: 0;
+    color: rgba(148, 163, 184, 0.45);
+    font-size: 22px;
+    letter-spacing: 2px;
+    text-shadow: 0 1px 4px rgba(0, 0, 0, 0.7);
+}
+
+.fs-top-stars .filled { color: #facc15; }
+
+/* Plein écran : liste "À suivre" en panneau superposé à droite (comme YouTube) */
+.fs-up-next-panel {
+    position: absolute;
+    top: 72px;
+    right: 16px;
+    bottom: 110px;
+    width: min(400px, 40vw);
+    z-index: 6;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 14px;
+    overflow-y: auto;
+    background: rgba(15, 15, 15, 0.9);
+    border: 1px solid rgba(148, 163, 184, 0.2);
+    border-radius: 12px;
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(6px);
+    animation: fsUpNextIn 0.2s ease;
+}
+
+.fs-up-next-panel .up-next-title { margin: 0; }
+
+@keyframes fsUpNextIn {
+    from { opacity: 0; transform: translateX(24px); }
+    to { opacity: 1; transform: translateX(0); }
+}
+
 .player-video-wrap {
     position: relative;
     display: flex;
@@ -979,6 +1047,14 @@
     box-shadow: 0 0 0 2px #38bdf8;
 }
 
+/* Lecture d'une playlist : la vidéo en cours est mise en évidence dans la liste */
+.up-next-item.current {
+    background: rgba(56, 189, 248, 0.12);
+    box-shadow: inset 3px 0 0 #38bdf8;
+}
+
+.up-next-item.current .up-next-video-title { color: #7dd3fc; }
+
 .up-next-item:hover .up-next-thumbnail,
 .up-next-item:focus-visible .up-next-thumbnail {
     box-shadow: 0 0 0 2px #fff;
@@ -998,9 +1074,9 @@
     display: -webkit-box;
     overflow: hidden;
     margin-bottom: 5px;
-    color: #f1f5f9;
+    color: #e2e8f0;
     font-size: 13px;
-    font-weight: 700;
+    font-weight: 600;
     line-height: 1.3;
     -webkit-box-orient: vertical;
     -webkit-line-clamp: 2;
@@ -1016,6 +1092,39 @@
 }
 
 .up-next-level { display: block; margin-top: 3px; }
+
+/* Infos allégées : durée sur la miniature, une ligne de stats, tags en texte */
+.up-next-thumb-wrap {
+    position: relative;
+    display: block;
+    width: 132px;
+    line-height: 0;
+}
+
+.up-next-duration {
+    position: absolute;
+    right: 4px;
+    bottom: 4px;
+    padding: 1px 4px;
+    border-radius: 4px;
+    background: rgba(0, 0, 0, 0.8);
+    color: #f1f5f9;
+    font-size: 10px;
+    font-weight: 600;
+    line-height: 1.4;
+}
+
+.up-next-stats {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: #8b95a5;
+}
+
+.up-next-stars { color: #facc15; font-size: 10px; letter-spacing: -1px; }
+.up-next-fav { color: #f472b6; }
+
+.up-next-tags-line { color: #64748b; font-size: 10.5px; margin-top: 1px; }
 
 .up-next-tags {
     display: flex;

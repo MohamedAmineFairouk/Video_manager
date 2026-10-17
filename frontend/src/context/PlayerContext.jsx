@@ -12,11 +12,15 @@ export function PlayerProvider({ children }) {
   // Ids des vidéos ajoutées automatiquement à "À suivre" (les N suivantes de la
   // bibliothèque). Celles mises en file par l'utilisateur passent toujours avant.
   const [autoIds, setAutoIds] = useState(() => new Set())
+  // Playlist en cours de lecture ({ id, name }) : la liste du lecteur montre alors toute
+  // la playlist (vidéo en cours en surbrillance) au lieu des seules vidéos à suivre.
+  const [playlistInfo, setPlaylistInfo] = useState(null)
 
   const openPlayer = useCallback((videos, startIndex, handlers = {}) => {
     setQueue(videos)
     setIndex(startIndex)
     setAutoIds(new Set())
+    setPlaylistInfo(handlers.playlist || null)
     setIsOpen(true)
     setMinimized(false)
     setOnVideoUpdated(() => handlers.onVideoUpdated || null)
@@ -33,6 +37,7 @@ export function PlayerProvider({ children }) {
       : []
     setOnVideoUpdated(() => handlers.onVideoUpdated || null)
     setOnVideoDeleted(() => handlers.onVideoDeleted || null)
+    setPlaylistInfo(null)
     if (userAhead.length) {
       const history = queue.slice(0, index + 1)
       setQueue([...history, video, ...userAhead])
@@ -73,6 +78,7 @@ export function PlayerProvider({ children }) {
     setOnVideoUpdated(null)
     setOnVideoDeleted(null)
     setAutoIds(new Set())
+    setPlaylistInfo(null)
   }, [])
 
   // Une vidéo mise en file par l'utilisateur n'est plus considérée comme automatique.
@@ -153,7 +159,7 @@ export function PlayerProvider({ children }) {
 
   return (
     <PlayerContext.Provider value={{
-      queue, index, isOpen, minimized, setMinimized,
+      queue, index, isOpen, minimized, setMinimized, playlistInfo,
       openPlayer, playFromList, closePlayer, goTo, addToQueue, playNext, removeFromQueue, moveInQueue,
       applyVideoUpdate, applyVideoDeleted,
     }}>

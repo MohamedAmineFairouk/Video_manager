@@ -64,6 +64,7 @@ export default function PlaylistDetailPage({ playlistId }) {
     const videos = playlist.videos
     const startIndex = videos.findIndex((v) => v.id === video.id)
     openPlayer(videos, startIndex, {
+      playlist: { id: playlist.id, name: playlist.name },
       onVideoUpdated: (updated) => setPlaylist((p) => ({ ...p, videos: p.videos.map((v) => (v.id === updated.id ? updated : v)) })),
       onVideoDeleted: (id) => setPlaylist((p) => ({ ...p, videos: p.videos.filter((v) => v.id !== id), videoCount: p.videoCount - 1 })),
     })

@@ -65,7 +65,7 @@ export default function PlaylistsPage() {
     const { videos = [] } = await api.get(`/playlists/${playlist.id}`)
     if (!videos.length) { setStatus(`La playlist "${playlist.name}" est vide.`); return }
     // Lecteur fermé : il n'y a pas de file visible, on lance directement la playlist.
-    if (action === 'play' || !isOpen) { openPlayer(videos, 0); return }
+    if (action === 'play' || !isOpen) { openPlayer(videos, 0, { playlist: { id: playlist.id, name: playlist.name } }); return }
     if (action === 'next') playNext(videos)
     else addToQueue(videos)
     setStatus(`${videos.length} vidéo(s) de "${playlist.name}" ajoutée(s) à la file d'attente.`)

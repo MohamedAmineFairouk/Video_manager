@@ -58,7 +58,7 @@ function EditableEntityField({ icon, tooltip, items, editing, onToggleEdit, badg
 }
 
 export default function VideoPlayerModal() {
-  const { queue, index, isOpen, minimized, setMinimized, closePlayer, goTo, removeFromQueue, moveInQueue, applyVideoUpdate, applyVideoDeleted } = usePlayer()
+  const { queue, index, isOpen, minimized, setMinimized, playlistInfo, closePlayer, goTo, removeFromQueue, moveInQueue, applyVideoUpdate, applyVideoDeleted } = usePlayer()
   const [dragFrom, setDragFrom] = useState(null)
   const [dragOver, setDragOver] = useState(null)
   const video = isOpen && index >= 0 ? queue[index] : null
@@ -100,6 +100,7 @@ export default function VideoPlayerModal() {
   const [saveStatus, setSaveStatus] = useState('')
   const [isFullscreenActive, setIsFullscreenActive] = useState(false)
   const [controlsVisible, setControlsVisible] = useState(true)
+  const [fsUpNextOpen, setFsUpNextOpen] = useState(false)
   const hideControlsTimeoutRef = useRef(null)
   const [savingQueue, setSavingQueue] = useState(false)
   const [queuePlaylistName, setQueuePlaylistName] = useState('')
@@ -149,6 +150,20 @@ export default function VideoPlayerModal() {
     setVolumePrefs(next)
     try { localStorage.setItem(VOLUME_STORAGE_KEY, JSON.stringify(next)) } catch { /* ignore */ }
   }
+
+  // Playlist : garde la vidéo en cours visible dans la liste (sans faire défiler le reste de la page).
+  useEffect(() => {
+    if (!playlistInfo) return
+    document.querySelectorAll('.up-next-item.current').forEach((el) => {
+      const panel = el.closest('.up-next-panel, .fs-up-next-panel')
+      if (!panel) return
+      const itemRect = el.getBoundingClientRect()
+      const panelRect = panel.getBoundingClientRect()
+      if (itemRect.top < panelRect.top || itemRect.bottom > panelRect.bottom) {
+        panel.scrollTop += itemRect.top - panelRect.top - 60
+      }
+    })
+  }, [index, playlistInfo, fsUpNextOpen, isOpen, minimized])
 
   const reportSession = useCallback(() => {
     if (!video || !videoRef.current) return
@@ -274,6 +289,7 @@ export default function VideoPlayerModal() {
       else {
         clearTimeout(hideControlsTimeoutRef.current)
         setControlsVisible(true)
+        setFsUpNextOpen(false)
       }
     }
     document.addEventListener('fullscreenchange', onFullscreenChange)
@@ -423,8 +439,64 @@ export default function VideoPlayerModal() {
 
   if (!video) return null
 
-  const upNext = queue.slice(index + 1, index + 51)
+  // Playlist : toute la file est affichée (vidéo en cours en surbrillance) ;
+  // sinon seulement les vidéos à suivre.
+  const listStart = playlistInfo ? 0 : index + 1
+  const upNext = playlistInfo ? queue : queue.slice(index + 1, index + 51)
+  const listTitle = playlistInfo ? `${playlistInfo.name} · ${index + 1}/${queue.length}` : 'À suivre'
   const filledStars = levelToFilledStars(draftLevel)
+
+  // Liste "À suivre", partagée entre le panneau latéral et le panneau plein écran.
+  const upNextList = (
+      <div className="up-next-list">
+        {upNext.length === 0 && !playlistInfo && <p className="up-next-empty">Aucune autre vidéo dans cette liste.</p>}
+        {upNext.map((v, offset) => {
+          const targetIndex = listStart + offset
+          const isCurrent = targetIndex === index
+          const stop = (fn) => (e) => { e.stopPropagation(); fn() }
+          return (
+            <div
+              key={v.id}
+              role="button"
+              tabIndex={0}
+              className={`up-next-item ${isCurrent ? 'current' : ''} ${dragFrom === targetIndex ? 'dragging' : ''} ${dragOver === targetIndex && dragFrom !== targetIndex ? 'drag-over' : ''}`}
+              onClick={() => handleGoTo(targetIndex)}
+              onKeyDown={(e) => { if (e.key === 'Enter') handleGoTo(targetIndex) }}
+              draggable
+              onDragStart={(e) => { setDragFrom(targetIndex); e.dataTransfer.effectAllowed = 'move' }}
+              onDragOver={(e) => { e.preventDefault(); setDragOver(targetIndex) }}
+              onDrop={(e) => { e.preventDefault(); if (dragFrom != null) moveInQueue(dragFrom, targetIndex); setDragFrom(null); setDragOver(null) }}
+              onDragEnd={() => { setDragFrom(null); setDragOver(null) }}
+            >
+              <div className="up-next-actions">
+                <button type="button" title="Monter" disabled={playlistInfo ? targetIndex === 0 : offset === 0} onClick={stop(() => moveInQueue(targetIndex, targetIndex - 1))}>↑</button>
+                <button type="button" title="Descendre" disabled={targetIndex >= queue.length - 1} onClick={stop(() => moveInQueue(targetIndex, targetIndex + 1))}>↓</button>
+                <button type="button" title="Retirer de la file d'attente" className="danger" disabled={isCurrent} onClick={stop(() => removeFromQueue(targetIndex))}>✕</button>
+              </div>
+              <span className="up-next-thumb-wrap">
+                <img className="up-next-thumbnail" src={thumbnailUrl(v.id)} alt="" loading="lazy" onError={(e) => { e.currentTarget.style.opacity = 0.3 }} />
+                {formatDuration(v.durationMs) && <span className="up-next-duration">{formatDuration(v.durationMs)}</span>}
+              </span>
+              <div className="up-next-details">
+                <div className="up-next-video-title">{v.title || v.fileName || 'Vidéo sans titre'}</div>
+                {v.creators?.length > 0 && <div className="up-next-meta">{v.creators.join(', ')}</div>}
+                <div className="up-next-meta up-next-stats">
+                  <span className="up-next-stars">{'★'.repeat(levelToFilledStars(v.sourceIndex))}</span>
+                  <span>{v.viewCount || 0} vue{(v.viewCount || 0) > 1 ? 's' : ''}</span>
+                  {v.favorite && <span className="up-next-fav" title="Favori">♥</span>}
+                  {v.archived && <span title="Archivée">📦</span>}
+                </div>
+                {v.tags?.length > 0 && (
+                  <div className="up-next-meta up-next-tags-line" title={v.tags.join(', ')}>
+                    {v.tags.map((t) => `#${t}`).join(' ')}
+                  </div>
+                )}
+              </div>
+            </div>
+          )
+        })}
+      </div>
+  )
 
   return (
     <>
@@ -539,11 +611,37 @@ export default function VideoPlayerModal() {
                       <AddToPlaylistPopover videoId={video.id} anchorRef={playlistBtnRef} onClose={() => setShowPlaylistPopover(false)} />
                     )}
                     <button className="yt-btn yt-btn-icon hide-in-fullscreen" title="Supprimer" onClick={() => { setDeleteError(''); setConfirmDeleteOpen(true) }}>🗑️</button>
+                    {isFullscreenActive && (
+                      <button
+                        className={`yt-btn yt-btn-icon ${fsUpNextOpen ? 'active' : ''}`}
+                        title={fsUpNextOpen ? 'Masquer la liste À suivre' : 'Afficher la liste À suivre'}
+                        onClick={() => setFsUpNextOpen((o) => !o)}
+                      >☰</button>
+                    )}
                     <button className="yt-btn yt-btn-icon" title="Plein écran" onClick={toggleFullScreen}>⛶</button>
                     <button className="yt-btn yt-btn-icon" title="Fermer" onClick={handleClose}>✕</button>
                   </div>
                 </div>
               </div>
+              {isFullscreenActive && (
+                <div className={`fs-top-bar ${controlsVisible ? '' : 'controls-hidden'}`}>
+                  <span className="fs-top-title" title={video.title}>{video.title || video.fileName || 'Vidéo sans titre'}</span>
+                  <span className="fs-top-stars" title={`${filledStars} étoile${filledStars > 1 ? 's' : ''}`}>
+                    {[1, 2, 3, 4, 5].map((i) => (
+                      <span key={i} className={i <= filledStars ? 'filled' : ''}>★</span>
+                    ))}
+                  </span>
+                </div>
+              )}
+              {isFullscreenActive && fsUpNextOpen && (
+                <aside className="fs-up-next-panel">
+                  <div className="up-next-header-row">
+                    <h3 className="up-next-title" title={listTitle}>{listTitle}</h3>
+                    <button className="yt-btn yt-btn-icon" title="Fermer" onClick={() => setFsUpNextOpen(false)}>✕</button>
+                  </div>
+                  {upNextList}
+                </aside>
+              )}
               </div>
 
               <section className="player-info-panel">
@@ -673,7 +771,7 @@ export default function VideoPlayerModal() {
 
             <aside className="up-next-panel">
               <div className="up-next-header-row">
-                <h3 className="up-next-title">À suivre</h3>
+                <h3 className="up-next-title" title={listTitle}>{listTitle}</h3>
                 <button
                   className="yt-btn yt-btn-icon"
                   title="Enregistrer la liste de lecture actuelle comme playlist"
@@ -699,48 +797,7 @@ export default function VideoPlayerModal() {
                   >{savingQueueBusy ? '...' : 'Créer'}</button>
                 </div>
               )}
-              <div className="up-next-list">
-                {upNext.length === 0 && <p className="up-next-empty">Aucune autre vidéo dans cette liste.</p>}
-                {upNext.map((v, offset) => {
-                  const targetIndex = index + offset + 1
-                  const stop = (fn) => (e) => { e.stopPropagation(); fn() }
-                  return (
-                    <div
-                      key={v.id}
-                      role="button"
-                      tabIndex={0}
-                      className={`up-next-item ${dragFrom === targetIndex ? 'dragging' : ''} ${dragOver === targetIndex && dragFrom !== targetIndex ? 'drag-over' : ''}`}
-                      onClick={() => handleGoTo(targetIndex)}
-                      onKeyDown={(e) => { if (e.key === 'Enter') handleGoTo(targetIndex) }}
-                      draggable
-                      onDragStart={(e) => { setDragFrom(targetIndex); e.dataTransfer.effectAllowed = 'move' }}
-                      onDragOver={(e) => { e.preventDefault(); setDragOver(targetIndex) }}
-                      onDrop={(e) => { e.preventDefault(); if (dragFrom != null) moveInQueue(dragFrom, targetIndex); setDragFrom(null); setDragOver(null) }}
-                      onDragEnd={() => { setDragFrom(null); setDragOver(null) }}
-                    >
-                      <div className="up-next-actions">
-                        <button type="button" title="Monter" disabled={offset === 0} onClick={stop(() => moveInQueue(targetIndex, targetIndex - 1))}>↑</button>
-                        <button type="button" title="Descendre" disabled={targetIndex >= queue.length - 1} onClick={stop(() => moveInQueue(targetIndex, targetIndex + 1))}>↓</button>
-                        <button type="button" title="Retirer de la file d'attente" className="danger" onClick={stop(() => removeFromQueue(targetIndex))}>✕</button>
-                      </div>
-                      <img className="up-next-thumbnail" src={thumbnailUrl(v.id)} alt="" loading="lazy" onError={(e) => { e.currentTarget.style.opacity = 0.3 }} />
-                      <div className="up-next-details">
-                        <div className="up-next-video-title">{v.title || v.fileName || 'Vidéo sans titre'}</div>
-                        {v.creators?.length > 0 && <div className="up-next-meta">{v.creators.join(', ')}</div>}
-                        <div className="up-next-meta">{formatDuration(v.durationMs) || 'Durée inconnue'}</div>
-                        {v.tags?.length > 0 && (
-                          <div className="up-next-tags">
-                            {v.tags.slice(0, 3).map((t) => (
-                              <span key={t} className="tag-badge">{t}</span>
-                            ))}
-                            {v.tags.length > 3 && <span className="tag-badge">+{v.tags.length - 3}</span>}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
+              {upNextList}
             </aside>
           </div>
         </div>
