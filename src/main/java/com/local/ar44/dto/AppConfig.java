@@ -15,4 +15,5 @@ public class AppConfig {
 
     private String mediaHost;
     private String pin;
+    private String theme; // thème de couleurs de l'interface (null = thème par défaut)
 }

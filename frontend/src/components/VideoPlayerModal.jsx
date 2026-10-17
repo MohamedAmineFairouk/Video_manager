@@ -701,7 +701,7 @@ export default function VideoPlayerModal() {
                           <span
                             key={i}
                             className="star"
-                            style={{ color: i <= filledStars ? '#facc15' : '#334155' }}
+                            style={{ color: i <= filledStars ? '#facc15' : 'rgb(var(--c-surf-4))' }}
                             title={`${levelValue} étoile(s)`}
                             onClick={() => setDraftLevel(levelValue)}
                           >★</span>

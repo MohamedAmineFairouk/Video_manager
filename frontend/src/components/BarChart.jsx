@@ -1,4 +1,4 @@
-export default function BarChart({ data, height = 140, color = '#38bdf8', valueSuffix = '' }) {
+export default function BarChart({ data, height = 140, color = 'rgb(var(--c-a))', valueSuffix = '' }) {
   if (!data || data.length === 0) {
     return <div className="empty-state" style={{ padding: '12px 0' }}>Pas encore de données.</div>
   }
@@ -21,7 +21,7 @@ export default function BarChart({ data, height = 140, color = '#38bdf8', valueS
               width={barWidth * 0.7}
               height={barHeight}
               rx="1"
-              fill={color}
+              style={{ fill: color }}
             >
               <title>{d.label}: {value}{valueSuffix}</title>
             </rect>

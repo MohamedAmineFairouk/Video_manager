@@ -5,7 +5,7 @@ import VideoCarousel from '../components/VideoCarousel'
 import ViewToggle from '../components/ViewToggle'
 import Pagination from '../components/Pagination'
 import AddToPlaylistPopover from '../components/AddToPlaylistPopover'
-import CreatorFilterSelect from '../components/CreatorFilterSelect'
+import MultiFilterSelect from '../components/MultiFilterSelect'
 import { api } from '../api/client'
 import { usePlayer } from '../context/PlayerContext'
 import { useViewPreferences } from '../context/ViewPreferencesContext'
@@ -22,8 +22,10 @@ export default function LibraryPage() {
   const [status, setStatus] = useState('')
 
   const [sort, setSort] = useState('level-desc')
-  const [creatorFilter, setCreatorFilter] = useState('')
-  const [tagFilter, setTagFilter] = useState(new Set())
+  // Créateurs à choix multiple ("au moins un" par défaut). Tags : une vidéo doit les avoir tous.
+  const [creatorFilter, setCreatorFilter] = useState([])
+  const [creatorMatch, setCreatorMatch] = useState('any')
+  const [tagFilter, setTagFilter] = useState([])
   const [levelFilter, setLevelFilter] = useState(null) // 1..5, inverted scale like the star UI
   const [favoriteOnly, setFavoriteOnly] = useState(false)
   // 'hide' = masque les archivées (défaut), 'show' = affiche toutes (archivées incluses),
@@ -86,14 +88,24 @@ export default function LibraryPage() {
     return { creatorCounts: counts, unknownCreatorCount: unknown }
   }, [videos])
 
+  const creatorExtraOptions = useMemo(
+    () => [{ value: UNKNOWN_CREATOR, label: 'UKWN', count: unknownCreatorCount }],
+    [unknownCreatorCount]
+  )
+
   const filtered = useMemo(() => {
     let list = videos
-    if (creatorFilter === UNKNOWN_CREATOR) list = list.filter((v) => !v.creators?.length)
-    else if (creatorFilter) list = list.filter((v) => v.creators?.includes(creatorFilter))
-    if (tagFilter.size > 0) {
+    if (creatorFilter.length > 0) {
+      // UKWN = vidéo sans créateur
+      const hasCreator = (v, c) => (c === UNKNOWN_CREATOR ? !v.creators?.length : !!v.creators?.includes(c))
+      list = list.filter((v) => (creatorMatch === 'all'
+        ? creatorFilter.every((c) => hasCreator(v, c))
+        : creatorFilter.some((c) => hasCreator(v, c))))
+    }
+    if (tagFilter.length > 0) {
       list = list.filter((v) => {
         const videoTags = v.tags || []
-        return Array.from(tagFilter).every((t) => videoTags.includes(t))
+        return tagFilter.every((t) => videoTags.includes(t))
       })
     }
     // Filtre "jusqu'à N étoiles" : N étoiles choisies = vidéos de 1 à N étoiles.
@@ -134,22 +146,18 @@ export default function LibraryPage() {
       default: break
     }
     return sorted
-  }, [videos, creatorFilter, tagFilter, levelFilter, favoriteOnly, archivedFilter, search, sort])
+  }, [videos, creatorFilter, creatorMatch, tagFilter, levelFilter, favoriteOnly, archivedFilter, search, sort])
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize))
   const clampedPage = Math.min(page, totalPages)
   const pageItems = filtered.slice((clampedPage - 1) * pageSize, clampedPage * pageSize)
 
   const resetFilters = () => {
-    setCreatorFilter(''); setTagFilter(new Set()); setLevelFilter(null); setFavoriteOnly(false); setArchivedFilter('hide'); setSort('level-desc'); setPage(1)
+    setCreatorFilter([]); setCreatorMatch('any'); setTagFilter([]); setLevelFilter(null); setFavoriteOnly(false); setArchivedFilter('hide'); setSort('level-desc'); setPage(1)
   }
 
   const toggleTagFilter = (tag) => {
-    setTagFilter((prev) => {
-      const next = new Set(prev)
-      if (next.has(tag)) next.delete(tag); else next.add(tag)
-      return next
-    })
+    setTagFilter((prev) => (prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]))
     setPage(1)
   }
 
@@ -243,13 +251,17 @@ export default function LibraryPage() {
               <option value="longest">Plus longues</option>
             </select>
 
-            <CreatorFilterSelect
-              value={creatorFilter}
+            <MultiFilterSelect
+              values={creatorFilter}
               onChange={(v) => { setCreatorFilter(v); setPage(1) }}
-              creators={creators}
+              items={creators}
               counts={creatorCounts}
-              unknownValue={UNKNOWN_CREATOR}
-              unknownCount={unknownCreatorCount}
+              extraOptions={creatorExtraOptions}
+              matchMode={creatorMatch}
+              onMatchModeChange={(m) => { setCreatorMatch(m); setPage(1) }}
+              minCount={5}
+              noun="créateur"
+              searchPlaceholder="Rechercher un créateur..."
             />
           </div>
 
@@ -262,7 +274,7 @@ export default function LibraryPage() {
                   <span
                     key={i}
                     className="star"
-                    style={{ color: filled ? '#facc15' : '#334155' }}
+                    style={{ color: filled ? '#facc15' : 'rgb(var(--c-surf-4))' }}
                     onClick={() => { setLevelFilter(levelFilter === levelValue ? null : levelValue); setPage(1) }}
                   >★</span>
                 )
@@ -298,7 +310,7 @@ export default function LibraryPage() {
                 <button
                   key={t}
                   type="button"
-                  className={`tag-filter-chip ${tagFilter.has(t) ? 'active' : ''}`}
+                  className={`tag-filter-chip ${tagFilter.includes(t) ? 'active' : ''}`}
                   onClick={() => toggleTagFilter(t)}
                 >{t}</button>
               ))}
@@ -320,7 +332,7 @@ export default function LibraryPage() {
             <button className="btn" style={{ fontSize: 12, padding: '7px 8px', background: 'rgba(34,212,153,0.95)' }} onClick={exportM3U}>Exporter M3U</button>
 
             {selected.size > 0 && (
-              <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid rgba(148,163,184,0.2)' }}>
+              <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid rgb(var(--c-muted) / 0.2)' }}>
                 <input
                   className="host-input"
                   type="text"
@@ -367,7 +379,7 @@ export default function LibraryPage() {
           <div className="count-box">{filtered.length} vidéo(s)</div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
             <ViewToggle />
-            <label style={{ fontSize: 13, color: '#cbd5e1', display: 'flex', alignItems: 'center', gap: 8 }}>
+            <label style={{ fontSize: 13, color: 'rgb(var(--c-text-2))', display: 'flex', alignItems: 'center', gap: 8 }}>
               Afficher
               <select
                 className="page-size-select"

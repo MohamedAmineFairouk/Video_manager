@@ -69,6 +69,22 @@ public class AppConfigControllers {
         return ResponseEntity.ok("Code mis à jour");
     }
 
+    // 🔹 GET / PUT → thème de couleurs de l'interface, partagé par tous les appareils
+    @GetMapping("/theme")
+    public ResponseEntity<String> getTheme() {
+        String theme = service.getTheme();
+        return ResponseEntity.ok(theme != null ? theme : "");
+    }
+
+    @PutMapping("/theme")
+    public ResponseEntity<String> setTheme(@RequestParam String name) {
+        if (!name.matches("[a-z0-9-]{1,32}")) {
+            return ResponseEntity.badRequest().body("Thème invalide");
+        }
+        service.setTheme(name);
+        return ResponseEntity.ok(name);
+    }
+
     // 🔹 GET → vérifier authentification
     @GetMapping("/auth/check")
     public ResponseEntity<Boolean> checkAuth(HttpSession session) {

@@ -9,7 +9,7 @@ export function LevelStars({ level, size = 15 }) {
   return (
     <span className="level-stars">
       {[1, 2, 3, 4, 5].map((i) => (
-        <span key={i} className="star" style={{ fontSize: size, color: i <= filled ? '#facc15' : '#334155' }}>★</span>
+        <span key={i} className="star" style={{ fontSize: size, color: i <= filled ? '#facc15' : 'rgb(var(--c-surf-4))' }}>★</span>
       ))}
     </span>
   )

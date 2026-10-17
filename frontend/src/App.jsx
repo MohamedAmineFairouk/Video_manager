@@ -4,6 +4,7 @@ import { useAuth } from './context/AuthContext'
 import { PlayerProvider } from './context/PlayerContext'
 import VideoPlayerModal from './components/VideoPlayerModal'
 import { api } from './api/client'
+import { applyTheme } from './themes'
 
 import LoginPage from './pages/LoginPage'
 import LibraryPage from './pages/LibraryPage'
@@ -32,6 +33,12 @@ export default function App() {
     if (authenticated === false && path !== '/login') navigate('/login')
     if (authenticated === true && path === '/login') navigate('/')
   }, [authenticated, path, navigate])
+
+  // Le thème choisi est enregistré côté serveur : même thème sur tous les appareils.
+  useEffect(() => {
+    if (authenticated !== true) return
+    api.get('/config/theme').then((theme) => { if (theme) applyTheme(theme) }).catch(() => {})
+  }, [authenticated])
 
   useEffect(() => {
     if (authenticated !== true) return

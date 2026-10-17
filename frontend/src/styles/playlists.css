@@ -33,12 +33,12 @@
 
 .playlist-list-item:hover,
 .playlist-list-item.active {
-    border-color: rgba(56, 189, 248, 0.6);
-    background: rgba(30, 64, 175, 0.24);
+    border-color: rgb(var(--c-a) / 0.6);
+    background: rgb(var(--c-p-deep) / 0.24);
 }
 
 .playlist-list-count {
-    color: #93c5fd;
+    color: rgb(var(--c-p-lighter));
     font-size: 11px;
 }
 
@@ -94,17 +94,17 @@
     color: inherit;
     text-align: left;
     cursor: pointer;
-    background: linear-gradient(145deg, #0b1225, #0f172a);
+    background: linear-gradient(145deg, rgb(var(--c-deep-1)), rgb(var(--c-surf)));
     border-radius: 14px;
     overflow: hidden;
-    border: 1px solid rgba(56, 189, 248, 0.25);
+    border: 1px solid rgb(var(--c-a) / 0.25);
     transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
 }
 
 .playlist-cover-card:hover {
     transform: translateY(-3px) scale(1.01);
-    box-shadow: 0 15px 30px rgba(29, 78, 216, 0.38);
-    border-color: rgba(59, 130, 246, 0.7);
+    box-shadow: 0 15px 30px rgb(var(--c-p-stronger) / 0.38);
+    border-color: rgb(var(--c-p) / 0.7);
 }
 
 .playlist-cover-grid {
@@ -138,7 +138,7 @@
 .playlist-cover-title {
     font-size: 14px;
     font-weight: 700;
-    color: #e0f2fe;
+    color: rgb(var(--c-a-pale));
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;

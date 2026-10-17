@@ -5,12 +5,13 @@ import ConfirmModal from '../components/ConfirmModal'
 import PinInput from '../components/PinInput'
 import { api } from '../api/client'
 import { formatClock } from '../utils'
+import { THEMES, applyTheme, savedTheme } from '../themes'
 
 function StatCard({ label, value }) {
   return (
     <div className="video-card" style={{ padding: 14 }}>
       <div className="section-title" style={{ marginBottom: 6 }}>{label}</div>
-      <div style={{ fontSize: 24, fontWeight: 800, color: '#dbeafe' }}>{value}</div>
+      <div style={{ fontSize: 24, fontWeight: 800, color: 'rgb(var(--c-p-pale))' }}>{value}</div>
     </div>
   )
 }
@@ -19,8 +20,47 @@ function sum(data) {
   return data.reduce((acc, d) => acc + (Number(d.value) || 0), 0)
 }
 
+function ThemePicker() {
+  const [current, setCurrent] = useState(savedTheme)
+  const [status, setStatus] = useState('')
+
+  const choose = async (id) => {
+    setCurrent(applyTheme(id))
+    try {
+      await api.put(`/config/theme?name=${encodeURIComponent(id)}`)
+      setStatus('Thème enregistré ✔')
+    } catch {
+      setStatus("Thème appliqué, mais pas enregistré sur le serveur")
+    }
+    setTimeout(() => setStatus(''), 2500)
+  }
+
+  return (
+    <div className="host-box theme-picker">
+      <div className="theme-grid">
+        {THEMES.map((t) => (
+          <button
+            key={t.id}
+            type="button"
+            className={`theme-card ${t.id === current ? 'active' : ''}`}
+            onClick={() => choose(t.id)}
+          >
+            <span className="theme-swatches">
+              {t.swatches.map((c, i) => <span key={i} style={{ background: c }} />)}
+            </span>
+            <span className="theme-name">{t.name}</span>
+            {t.id === current && <span className="theme-check">✔</span>}
+          </button>
+        ))}
+      </div>
+      {status && <div className="status" style={{ marginTop: 10 }}>{status}</div>}
+    </div>
+  )
+}
+
 export default function StatsPage() {
   const [stats, setStats] = useState(null)
+  const [themeOpen, setThemeOpen] = useState(false)
   const [resetOpen, setResetOpen] = useState(false)
   const [resetPin, setResetPin] = useState('')
   const [resetStatus, setResetStatus] = useState('')
@@ -148,6 +188,9 @@ export default function StatsPage() {
         <div className="stats-page-header">
           <h1 className="page-title" style={{ margin: 0 }}>Statistiques</h1>
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+            <button className="btn-secondary" style={{ width: 'auto' }} onClick={() => setThemeOpen((o) => !o)}>
+              🎨 Thème
+            </button>
             <button className="btn-secondary" style={{ width: 'auto' }} onClick={() => { setPinChangeOpen((o) => !o); resetPinChangeFlow() }}>
               Changer le code PIN
             </button>
@@ -159,6 +202,8 @@ export default function StatsPage() {
             </button>
           </div>
         </div>
+
+        {themeOpen && <ThemePicker />}
 
         {unarchiveStatus && (
           <div className="status" style={{ color: '#4ade80', marginBottom: 12 }}>{unarchiveStatus}</div>
@@ -215,7 +260,7 @@ export default function StatsPage() {
             <div className="stats-section">
               <h2 className="stats-section-title">🕒 Quand je me connecte (par heure, historique complet)</h2>
               <div className="stats-chart-card">
-                <BarChart data={stats.connectionsByHour} color="#6366f1" height={130} />
+                <BarChart data={stats.connectionsByHour} color="rgb(var(--c-s))" height={130} />
               </div>
             </div>
 
@@ -227,21 +272,21 @@ export default function StatsPage() {
                     <span className="stats-chart-card-title">Par jour (30j)</span>
                     <span className="stats-chart-card-total">{sum(stats.connectionsByDay ?? [])} total</span>
                   </div>
-                  <BarChart data={stats.connectionsByDay} color="#38bdf8" />
+                  <BarChart data={stats.connectionsByDay} color="rgb(var(--c-a))" />
                 </div>
                 <div className="stats-chart-card">
                   <div className="stats-chart-card-header">
                     <span className="stats-chart-card-title">Par semaine (12s)</span>
                     <span className="stats-chart-card-total">{sum(stats.connectionsByWeek ?? [])} total</span>
                   </div>
-                  <BarChart data={stats.connectionsByWeek} color="#38bdf8" />
+                  <BarChart data={stats.connectionsByWeek} color="rgb(var(--c-a))" />
                 </div>
                 <div className="stats-chart-card">
                   <div className="stats-chart-card-header">
                     <span className="stats-chart-card-title">Par mois (12m)</span>
                     <span className="stats-chart-card-total">{sum(stats.connectionsByMonth ?? [])} total</span>
                   </div>
-                  <BarChart data={stats.connectionsByMonth} color="#38bdf8" />
+                  <BarChart data={stats.connectionsByMonth} color="rgb(var(--c-a))" />
                 </div>
               </div>
             </div>

@@ -33,6 +33,24 @@ public class AppConfigService {
         return host;
     }
 
+    public String getTheme() {
+        return repository.findAll()
+                .stream()
+                .findFirst()
+                .map(AppConfig::getTheme)
+                .orElse(null);
+    }
+
+    public void setTheme(String theme) {
+        AppConfig config = repository.findAll()
+                .stream()
+                .findFirst()
+                .orElse(new AppConfig());
+
+        config.setTheme(theme);
+        repository.save(config);
+    }
+
     public boolean login(String pin) {
         return verifyPin(pin);
     }
