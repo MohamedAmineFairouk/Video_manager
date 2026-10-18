@@ -3,6 +3,7 @@ import { useRouter } from './router'
 import { useAuth } from './context/AuthContext'
 import { PlayerProvider } from './context/PlayerContext'
 import VideoPlayerModal from './components/VideoPlayerModal'
+import ClipJobsTray from './components/ClipJobsTray'
 import { api } from './api/client'
 import { applyTheme } from './themes'
 
@@ -72,6 +73,7 @@ export default function App() {
     <PlayerProvider>
       <Page {...props} />
       <VideoPlayerModal />
+      <ClipJobsTray />
     </PlayerProvider>
   )
 }

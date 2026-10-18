@@ -45,8 +45,9 @@ import java.util.concurrent.Executors;
  * (créateurs, tags, niveau, favori, commentaire, historique de vues) ; les ancres
  * comprises dans les segments sont recalées sur la nouvelle timeline.
  *
- * Le traitement peut durer plusieurs minutes : il tourne en tâche de fond (une à la
- * fois) et le front suit son avancement via {@link #getJob(String)}.
+ * Le traitement peut durer plusieurs minutes : il tourne en tâche de fond, une vidéo à
+ * la fois (les demandes suivantes attendent leur tour), et le front suit l'avancement
+ * via {@link #listJobs()} sans bloquer l'application.
  */
 @Service
 public class VideoClipService {
@@ -59,16 +60,29 @@ public class VideoClipService {
 
     public static class ClipJob {
         public final String id;
+        public final Long sourceVideoId;
+        public final String title;
+        public final long createdAt = System.currentTimeMillis();
+        public volatile long finishedAt;
         public volatile String status = "pending"; // pending | running | done | error
         public volatile double progress = 0;      // 0..1
         public volatile Long newVideoId;
         public volatile String error;
 
-        ClipJob(String id) { this.id = id; }
+        ClipJob(String id, Long sourceVideoId, String title) {
+            this.id = id;
+            this.sourceVideoId = sourceVideoId;
+            this.title = title;
+        }
+
+        boolean finished() { return "done".equals(status) || "error".equals(status); }
 
         public Map<String, Object> toMap() {
             Map<String, Object> map = new java.util.LinkedHashMap<>();
             map.put("id", id);
+            map.put("sourceVideoId", sourceVideoId);
+            map.put("title", title);
+            map.put("createdAt", createdAt);
             map.put("status", status);
             map.put("progress", progress);
             map.put("newVideoId", newVideoId);
@@ -120,6 +134,15 @@ public class VideoClipService {
         return jobs.get(jobId);
     }
 
+    /** Tâches en attente / en cours, et celles terminées depuis moins d'une heure (les plus anciennes d'abord). */
+    public List<ClipJob> listJobs() {
+        long expiry = System.currentTimeMillis() - 60 * 60 * 1000L;
+        jobs.values().removeIf(j -> j.finished() && j.finishedAt < expiry);
+        List<ClipJob> list = new ArrayList<>(jobs.values());
+        list.sort((a, b) -> Long.compare(a.createdAt, b.createdAt));
+        return list;
+    }
+
     /** Valide la demande puis lance le traitement en tâche de fond. */
     public ClipJob start(Long sourceVideoId, List<Segment> rawSegments, String title, double rawVolume) {
         Video source = videoRepository.findById(sourceVideoId)
@@ -138,9 +161,9 @@ public class VideoClipService {
             throw new IllegalArgumentException("Aucun segment valide (au moins 0,5 s chacun)");
         }
 
-        ClipJob job = new ClipJob(UUID.randomUUID().toString());
-        jobs.put(job.id, job);
         String finalTitle = title == null || title.isBlank() ? source.getTitle() + "_extrait" : title.trim();
+        ClipJob job = new ClipJob(UUID.randomUUID().toString(), sourceVideoId, finalTitle);
+        jobs.put(job.id, job);
         executor.submit(() -> run(job, sourceVideoId, segments, finalTitle, volume));
         return job;
     }
@@ -239,6 +262,7 @@ public class VideoClipService {
             job.error = e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage();
             job.status = "error";
         } finally {
+            job.finishedAt = System.currentTimeMillis();
             deleteQuietly(tempSource);
             deleteQuietly(tempOutput);
             deleteQuietly(tempThumb);

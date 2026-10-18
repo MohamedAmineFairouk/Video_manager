@@ -59,7 +59,7 @@ function EditableEntityField({ icon, tooltip, items, editing, onToggleEdit, badg
 }
 
 export default function VideoPlayerModal() {
-  const { queue, index, isOpen, minimized, setMinimized, playlistInfo, openPlayer, closePlayer, goTo, removeFromQueue, moveInQueue, applyVideoUpdate, applyVideoDeleted } = usePlayer()
+  const { queue, index, isOpen, minimized, setMinimized, playlistInfo, closePlayer, goTo, removeFromQueue, moveInQueue, applyVideoUpdate, applyVideoDeleted } = usePlayer()
   const [dragFrom, setDragFrom] = useState(null)
   const [dragOver, setDragOver] = useState(null)
   const video = isOpen && index >= 0 ? queue[index] : null
@@ -426,16 +426,6 @@ export default function VideoPlayerModal() {
     if (document.fullscreenElement) document.exitFullscreen?.()
     el?.pause()
     setEditor({ startTime: el?.currentTime || 0 })
-  }
-
-  // Ouvre la vidéo créée par l'éditeur dans le lecteur.
-  const openCreatedVideo = async (videoId) => {
-    setEditor(null)
-    try {
-      const all = await api.get('/videos')
-      const created = all.find((v) => v.id === videoId)
-      if (created) openPlayer([created], 0)
-    } catch { /* la vidéo reste visible dans la bibliothèque */ }
   }
 
   useEffect(() => {
@@ -825,7 +815,6 @@ export default function VideoPlayerModal() {
           video={video}
           startTime={editor.startTime}
           onClose={() => setEditor(null)}
-          onOpenVideo={openCreatedVideo}
         />
       )}
 

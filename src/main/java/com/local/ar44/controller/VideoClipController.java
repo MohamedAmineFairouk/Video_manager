@@ -40,6 +40,11 @@ public class VideoClipController {
         }
     }
 
+    @GetMapping("/clip-jobs")
+    public List<Map<String, Object>> listJobs() {
+        return videoClipService.listJobs().stream().map(VideoClipService.ClipJob::toMap).toList();
+    }
+
     @GetMapping("/clip-jobs/{jobId}")
     public ResponseEntity<Map<String, Object>> getJob(@PathVariable String jobId) {
         VideoClipService.ClipJob job = videoClipService.getJob(jobId);

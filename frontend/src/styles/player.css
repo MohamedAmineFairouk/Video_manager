@@ -1426,3 +1426,72 @@
 }
 .editor-chip:hover:not(:disabled) { border-color: rgb(var(--c-a)); }
 .editor-chip.active { border-color: rgb(var(--c-a)); background: rgb(var(--c-a) / 0.2); color: rgb(var(--c-a-pale)); }
+
+/* Créations de vidéos en arrière-plan (ClipJobsTray) */
+.clip-tray {
+    position: fixed;
+    left: 20px;
+    bottom: 20px;
+    z-index: 10003;
+    width: 300px;
+    max-width: calc(100vw - 40px);
+    background: rgb(var(--c-surf));
+    border: 1px solid rgb(var(--c-a) / 0.4);
+    border-radius: 12px;
+    box-shadow: 0 16px 36px -10px rgba(0, 0, 0, 0.7);
+    overflow: hidden;
+}
+.clip-tray-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 9px 12px;
+    font-size: 13px;
+    font-weight: 700;
+    color: rgb(var(--c-text));
+    background: rgb(var(--c-a) / 0.12);
+    cursor: pointer;
+    user-select: none;
+}
+.clip-tray-toggle { color: rgb(var(--c-muted)); }
+.clip-tray-list { max-height: 260px; overflow-y: auto; }
+.clip-tray-item {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 9px 12px;
+    border-top: 1px solid rgb(var(--c-muted) / 0.15);
+}
+.clip-tray-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.clip-tray-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: rgb(var(--c-a-pale));
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.clip-tray-status { font-size: 12px; color: rgb(var(--c-text-2)); }
+.clip-tray-status.ok { color: #4ade80; font-weight: 600; }
+.clip-tray-status.err { color: #fca5a5; }
+.clip-tray-close {
+    background: transparent;
+    border: none;
+    color: rgb(var(--c-muted));
+    cursor: pointer;
+    font-size: 12px;
+    padding: 0 2px;
+    flex-shrink: 0;
+}
+.clip-tray-close:hover { color: rgb(var(--c-text)); }
+.clip-tray-open {
+    background: rgb(var(--c-p) / 0.25);
+    border: 1px solid rgb(var(--c-p) / 0.5);
+    color: rgb(var(--c-text));
+    border-radius: 6px;
+    padding: 3px 10px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+}
+.clip-tray-open:hover { background: rgb(var(--c-p) / 0.4); }

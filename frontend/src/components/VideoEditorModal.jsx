@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { api, storyboardUrl } from '../api/client'
 import { STORYBOARD_COLS, STORYBOARD_ROWS, STORYBOARD_FRAME_COUNT } from '../utils'
+import { requestClipNotificationPermission } from './ClipJobsTray'
 
 const MIN_SEGMENT = 0.5 // secondes, même minimum que le backend (VideoClipService)
 const VOLUME_MIN = 0.1
@@ -47,7 +48,7 @@ function TimeInput({ value, onCommit }) {
  * Éditeur "✂ Découper" : choisir graphiquement des segments d'une vidéo, puis créer
  * une nouvelle vidéo qui ne contient que ces segments (mêmes infos que l'originale).
  */
-export default function VideoEditorModal({ video, startTime = 0, onClose, onOpenVideo }) {
+export default function VideoEditorModal({ video, startTime = 0, onClose }) {
   const videoRef = useRef(null)
   const trackRef = useRef(null)
   const dragRef = useRef(null)
@@ -66,9 +67,10 @@ export default function VideoEditorModal({ video, startTime = 0, onClose, onOpen
   const [volume, setVolume] = useState(1)
   const audioRef = useRef(null) // { ctx, gain }
 
-  const [job, setJob] = useState(null) // { id, status, progress, newVideoId, error }
+  // La création tourne côté serveur : l'éditeur se ferme dès la demande acceptée,
+  // l'avancement et la notification de fin sont gérés par ClipJobsTray.
+  const [busy, setBusy] = useState(false)
   const [submitError, setSubmitError] = useState('')
-  const busy = job && (job.status === 'pending' || job.status === 'running')
   const volumeChanged = Math.abs(volume - 1) > 0.005
 
   const totalSelected = useMemo(() => segments.reduce((acc, s) => acc + (s.end - s.start), 0), [segments])
@@ -258,27 +260,19 @@ export default function VideoEditorModal({ video, startTime = 0, onClose, onOpen
   const submit = async () => {
     if (!canSubmit || busy) return
     setSubmitError('')
+    setBusy(true)
+    requestClipNotificationPermission()
     try {
       const payload = { title: title.trim(), volume, segments: sortedSegments.map(({ start, end }) => ({ start, end })) }
       const created = await api.post(`/videos/${video.id}/clip`, payload)
       videoRef.current?.pause()
-      setJob(created)
+      window.dispatchEvent(new CustomEvent('ar44:clip-job-started', { detail: created }))
+      onClose()
     } catch (e) {
       setSubmitError(e.message || 'La création a échoué.')
+      setBusy(false)
     }
   }
-
-  useEffect(() => {
-    if (!busy) return undefined
-    const timer = setInterval(async () => {
-      try {
-        const next = await api.get(`/videos/clip-jobs/${job.id}`)
-        setJob(next)
-        if (next.status === 'done') window.dispatchEvent(new Event('ar44:videos-changed'))
-      } catch { /* on réessaie au prochain tick */ }
-    }, 1000)
-    return () => clearInterval(timer)
-  }, [busy, job?.id])
 
   // ---------- Clavier (prioritaire sur celui du lecteur) ----------
   useEffect(() => {
@@ -448,40 +442,13 @@ export default function VideoEditorModal({ video, startTime = 0, onClose, onOpen
               Les ancres comprises dans les segments sont recalées. La vidéo originale n'est pas modifiée.
             </p>
 
-            {job ? (
-              <div className="editor-job">
-                {busy && (
-                  <>
-                    <div className="editor-progress"><div style={{ width: `${Math.round((job.progress || 0) * 100)}%` }} /></div>
-                    <span className="editor-job-text">Création en cours… {Math.round((job.progress || 0) * 100)} %</span>
-                  </>
-                )}
-                {job.status === 'done' && (
-                  <>
-                    <span className="editor-job-text ok">✔ Nouvelle vidéo créée</span>
-                    <div className="editor-job-actions">
-                      <button className="btn" style={{ width: 'auto', margin: 0 }} onClick={() => onOpenVideo(job.newVideoId)}>Ouvrir la nouvelle vidéo</button>
-                      <button className="btn-secondary" style={{ width: 'auto', margin: 0 }} onClick={() => setJob(null)}>Faire un autre extrait</button>
-                    </div>
-                  </>
-                )}
-                {job.status === 'error' && (
-                  <>
-                    <span className="editor-job-text err">Échec : {job.error}</span>
-                    <button className="btn-secondary" style={{ width: 'auto', margin: 0 }} onClick={() => setJob(null)}>Réessayer</button>
-                  </>
-                )}
-              </div>
-            ) : (
-              <>
-                {submitError && <span className="editor-job-text err">{submitError}</span>}
-                <button className="btn" disabled={!canSubmit || !title.trim()} onClick={submit}>
-                  {segments.length
-                    ? `✂ Créer la vidéo (${segments.length} segment${segments.length > 1 ? 's' : ''})`
-                    : '🔊 Créer une copie avec le nouveau son'}
-                </button>
-              </>
-            )}
+            {submitError && <span className="editor-job-text err">{submitError}</span>}
+            <button className="btn" disabled={!canSubmit || !title.trim() || busy} onClick={submit}>
+              {segments.length
+                ? `✂ Créer la vidéo (${segments.length} segment${segments.length > 1 ? 's' : ''})`
+                : '🔊 Créer une copie avec le nouveau son'}
+            </button>
+            <p className="editor-note">La création se fait en arrière-plan : l'éditeur se ferme et l'application reste utilisable. Une notification signale la fin.</p>
           </div>
         </div>
       </div>
